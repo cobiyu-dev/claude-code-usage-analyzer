@@ -1,0 +1,55 @@
+# 사람 이름 자동 발견 정규식 (언어별)
+# Stage A 가 첫 실행 마법사용 후보 목록을 뽑을 때 사용
+# 직함 enum 을 본인 조직에 맞춰 좁히지 말 것 (약속 1)
+
+people_name_patterns:
+  # 한국어
+  - lang: ko
+    name_regex: '[가-힣]{2,4}'
+    suffixes:
+      - 님
+      - 씨
+      - 매니저
+      - 선임
+      - 책임
+      - 수석
+      - 팀장
+      - 실장
+      - 과장
+      - 차장
+      - 부장
+      - PM
+      - PO
+      - 개발자
+      - 디자이너
+      - 엔지니어
+      - 기획자
+    prefixes:
+      - PM
+      - PO
+      - 매니저
+      - 선임
+      - 책임
+      - 디자이너
+      - 기획자
+    tag_regex: '@[가-힣]{2,4}'
+
+  # 영어
+  - lang: en
+    name_regex: '[A-Z][a-z]{2,15}'
+    suffixes: []
+    prefixes:
+      - Manager
+      - Senior
+      - Lead
+      - Principal
+      - Staff
+      - PM
+      - PO
+      - Designer
+      - Engineer
+    tag_regex: '@[A-Za-z][A-Za-z0-9._-]{1,30}'
+
+# 자동 발견 임계값
+min_frequency: 3
+deduplication: true

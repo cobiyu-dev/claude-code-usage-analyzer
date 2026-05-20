@@ -1,0 +1,80 @@
+# 에피소드 종결 신호 (Stage B 단계 3.5)
+# verify phase 안에서만 매칭 — 도입부 commit 이 잘못 분류되지 않도록
+
+outcomes:
+  committed:
+    description: "git commit 으로 종결"
+    detect:
+      tool: shell_exec
+      command_regex: '^\s*git\s+commit(\s|$)'
+      phase: verify
+
+  pushed:
+    description: "원격 푸시까지 진행"
+    detect:
+      tool: shell_exec
+      command_regex: '^\s*git\s+push(\s|$)'
+      phase: verify
+
+  pr_opened:
+    description: "PR 생성으로 종결"
+    detect:
+      any_of:
+        - tool: shell_exec
+          command_regex: '^\s*gh\s+pr\s+create(\s|$)'
+        - tool_name_regex: '^(mcp__)?github__create_pull_request$'
+      phase: verify
+
+  verified_by_data:
+    description: "작업 결과를 데이터로 직접 검증"
+    detect:
+      function_group_in: [db_query, log_search, metric_query, trace_view]
+      phase: verify
+
+  verified_by_run:
+    description: "앱/테스트 실행으로 결과 검증"
+    detect:
+      tool: shell_exec
+      output_type: execution_like
+      phase: verify
+
+  delegated_and_reported:
+    description: "위임 후 결과 요약만 받음"
+    detect:
+      tool: agent
+      position: last_turn_of_main_or_verify
+
+  abandoned_or_paused:
+    description: "검증·종결 없이 끊김"
+    detect:
+      verify_phase_empty: true
+      last_turn_signals:
+        any_of:
+          - has_error_output: true
+          - no_assistant_response_within: 5m
+
+  # commit/PR 양상 세분화
+  incremental_commits:
+    description: "작업 중간중간 여러 번 commit 으로 끊어 감"
+    detect:
+      git_commits_count_gte: 2
+      commit_positions:
+        any_in: [main]
+
+  single_final_commit:
+    description: "작업 전체를 끝까지 끌고 가서 한 번에 commit"
+    detect:
+      git_commits_count_eq: 1
+      commit_positions:
+        all_in: [verify]
+
+  pr_with_structured_body:
+    description: "PR 본문을 구조화해 생성 (요약·테스트 계획 등 섹션)"
+    detect:
+      any_of:
+        - tool: shell_exec
+          command_regex: 'gh\s+pr\s+create.*--body'
+          body_contains_any: ["## Summary", "## Test", "## 변경", "## 요약"]
+        - tool_name_regex: '^(mcp__)?github__create_pull_request$'
+          body_contains_any: ["## Summary", "## Test", "## 변경", "## 요약"]
+      phase: verify

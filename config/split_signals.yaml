@@ -1,0 +1,36 @@
+# Stage B 에피소드 분할 휴리스틱 임계값/키워드
+# 본인 데이터 보고 깎지 말 것 (약속 1)
+
+time_gap:
+  threshold_minutes: 20
+
+session_change:
+  enabled: true   # 세션 ID 다르면 끊기
+
+clear_command:
+  enabled: true   # /clear 직후 끊기
+
+topic_keyword_change:
+  enabled: true
+  window_size: 5
+  jaccard_threshold: 0.2   # 직전/다음 5턴의 명사 키워드 jaccard 0.2 이하면 끊기
+
+function_group_disruption:
+  enabled: true
+  window_size: 5
+  overlap_threshold: 0.2   # 도구 기능 그룹 set overlap 0.2 이하면 끊기
+
+transition_phrases:
+  ko:
+    - "이제 다른"
+    - "끝났네"
+    - "그럼 새로운"
+    - "다음으로"
+    - "이제 됐다"
+    - "이제 진짜"
+  en:
+    - "now let's"
+    - "done with"
+    - "moving on"
+    - "next up"
+    - "alright now"

@@ -1,0 +1,156 @@
+# 기능 그룹별 tool_result 본문 절사 룰
+# Stage A 에서 적용
+
+carve_out_rules:
+  log_search:
+    rationale: "어떤 검색 쿼리에 어떤 로그가 매칭됐는지가 핵심"
+    rule:
+      type: "first_n_entries"
+      n: 3
+      include_query: true
+      include_total_count: true
+
+  trace_view:
+    rationale: "trace 한 건의 span 구조가 핵심"
+    rule:
+      type: "first_n_traces"
+      n: 1
+      include_span_tree: true
+      include_total_count: true
+
+  metric_query:
+    rule:
+      type: "query_plus_first_n_points"
+      n: 5
+      include_total_count: true
+
+  db_query:
+    rule:
+      type: "sql_plus_first_n_rows"
+      n: 5
+      include_columns: true
+      include_total_count: true
+
+  code_search:
+    rule:
+      type: "pattern_plus_first_n_lines"
+      n: 10
+
+  web:
+    rule:
+      web_search:
+        type: "query_plus_first_n_results"
+        n: 5
+        result_snippet_chars: 150
+      web_fetch:
+        type: "url_plus_head_tail"
+        head_chars: 400
+        tail_chars: 200
+
+  issue_tracker:
+    rule:
+      type: "issue_summary"
+      include: [id, title, status, assignee]
+      body_chars: 300
+
+  chat:
+    rule:
+      type: "first_n_messages"
+      n: 5
+      message_chars: 200
+      include_channel: true
+
+  docs:
+    rule:
+      type: "doc_summary"
+      include: [title, headers]
+      first_paragraph_chars: 300
+      header_levels: [1, 2]
+
+  file_read:
+    rule:
+      type: "short_or_signature"
+      short_threshold_lines: 80
+      signature_includes: ["imports", "function_signatures", "notable_lines"]
+      notable_keywords: ["TODO", "FIXME", "XXX", "HACK"]
+
+  file_edit:
+    rule:
+      edit:
+        type: "diff_summary"
+        old_str_chars: 200
+        new_str_chars: 200
+        include_path: true
+      write:
+        type: "head_tail"
+        head_chars: 300
+        tail_chars: 100
+        include_path: true
+
+  shell_exec:
+    rule:
+      type: "delegate_to_output_classifier"
+
+  browser:
+    rule:
+      type: "action_summary"
+      include: [current_url, action_type, page_title]
+
+  design_tool:
+    rule:
+      type: "object_summary"
+      include: [object_id, object_type]
+      change_summary_chars: 200
+
+  ide:
+    rule:
+      type: "action_summary"
+      include: [file, position, action_type]
+
+  agent:
+    rule:
+      type: "task_summary"
+      task_description_chars: 400
+      result_tail_chars: 400
+
+  other:
+    rule:
+      type: "fallback_head_tail"
+      tool_name: true
+      arguments_summary: true
+      result_head_chars: 400
+      result_tail_chars: 200
+
+# shell_exec 위임 대상 — Bash 출력 5가지 유형
+output_types:
+  list_like:
+    rule:
+      type: "first_n_lines"
+      n: 10
+      include_total: true
+
+  execution_like:
+    rule:
+      type: "exec_summary"
+      include: [exit_code, command]
+      stdout_tail_lines: 30
+      stderr_tail_lines: 10
+
+  document_like:
+    rule:
+      type: "short_or_signature"
+      short_threshold_lines: 80
+      signature_includes: ["headers", "function_signatures", "notable_lines"]
+
+  short_output:
+    rule:
+      type: "full"
+      max_lines: 5
+      max_chars: 400
+
+  structured_data:
+    rule:
+      type: "structured_summary"
+      include: [top_level_keys]
+      first_n_items: 3
+      include_total: true

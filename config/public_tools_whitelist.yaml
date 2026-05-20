@@ -1,0 +1,40 @@
+# 마스킹 제외할 일반 공개 도구 이름
+# 카테고리는 가독성용. 매칭 시 평탄화해서 사용.
+
+observability:
+  - grafana
+  - datadog
+  - prometheus
+  - sentry
+  - honeycomb
+  - newrelic
+  - splunk
+  - kibana
+  - loki
+
+issue_tracker:
+  - jira
+  - linear
+  - github
+  - gitlab
+  - asana
+  - trello
+  - notion
+  - clickup
+
+chat:
+  - slack
+  - discord
+  - teams
+
+cloud:
+  - aws
+  - gcp
+  - azure
+  - kubernetes
+  - docker
+
+design:
+  - figma
+  - sketch
+  - adobe_xd

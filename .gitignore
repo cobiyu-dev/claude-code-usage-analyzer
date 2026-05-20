@@ -1,0 +1,16 @@
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+.env
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+.DS_Store
+
+# 사용자 데이터 (혹시 repo 안에 cache 가 잡힐 때)
+.cache/
+*.parquet
+

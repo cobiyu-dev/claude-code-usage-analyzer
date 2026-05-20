@@ -1,0 +1,17 @@
+[project]
+name = "cc-analyzer-scripts"
+version = "0.1.0"
+description = "Claude Code Usage Analyzer scripts (Stage A, Stage C)"
+requires-python = ">=3.10"
+dependencies = [
+    "pandas",
+    "pyarrow",
+    "pyyaml",
+]
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["scripts", "scripts.lib"]

@@ -1,0 +1,97 @@
+# 17개 기능 그룹 정의 + 한국어 설명
+# Stage A 가 도구 자동 분류 시 분류 기준으로 사용
+# Stage D 가 보고서 인라인 괄호 표기 시 description_ko 사용
+#
+# 확장 가이드: docs/yaml_specs.md 의 function_groups 섹션 참고
+# 새 그룹 추가 시 carve_out_rules.yaml 에도 룰 추가 필수
+
+function_groups:
+  # 정보 검색·조회
+  log_search:
+    description_ko: "로그 검색 도구"
+    description_en: "log search"
+    example_tools: [grafana, datadog_logs, splunk, loki]
+
+  trace_view:
+    description_ko: "분산 trace 분석 도구"
+    description_en: "distributed trace analysis"
+    example_tools: [datadog_apm, honeycomb, jaeger]
+
+  metric_query:
+    description_ko: "메트릭 조회 도구"
+    description_en: "metric query"
+    example_tools: [prometheus, datadog_metrics, cloudwatch]
+
+  db_query:
+    description_ko: "DB 쿼리 도구"
+    description_en: "database query"
+    example_tools: [mysql, bigquery, postgres]
+
+  code_search:
+    description_ko: "코드 검색 도구"
+    description_en: "code search"
+    example_tools: [grep, ripgrep, github_code_search]
+
+  web:
+    description_ko: "웹 검색/조회"
+    description_en: "web search/fetch"
+    example_tools: [web_search, web_fetch]
+
+  # 작업 관리·협업
+  issue_tracker:
+    description_ko: "이슈 트래커"
+    description_en: "issue tracker"
+    example_tools: [jira, linear, github_issues, asana]
+
+  chat:
+    description_ko: "채팅 도구"
+    description_en: "chat/messaging"
+    example_tools: [slack, discord, teams]
+
+  docs:
+    description_ko: "문서 협업 도구"
+    description_en: "documentation"
+    example_tools: [confluence, notion, google_docs]
+
+  # 파일·코드 조작
+  file_read:
+    description_ko: "파일 읽기"
+    description_en: "file read"
+    example_tools: [Read]
+
+  file_edit:
+    description_ko: "파일 편집"
+    description_en: "file edit"
+    example_tools: [Edit, Write]
+
+  shell_exec:
+    description_ko: "셸 실행"
+    description_en: "shell execution"
+    example_tools: [Bash]
+
+  # 자동화·외부 조작
+  browser:
+    description_ko: "브라우저 자동화"
+    description_en: "browser automation"
+    example_tools: [chrome_mcp, playwright]
+
+  design_tool:
+    description_ko: "디자인 도구"
+    description_en: "design tool"
+    example_tools: [figma]
+
+  ide:
+    description_ko: "IDE 연동"
+    description_en: "IDE integration"
+    example_tools: [vscode_mcp, jetbrains_mcp]
+
+  # 기타
+  agent:
+    description_ko: "서브 에이전트"
+    description_en: "subagent"
+    example_tools: [Task]
+
+  other:
+    description_ko: ""   # 인라인 괄호 생략
+    description_en: ""
+    example_tools: []

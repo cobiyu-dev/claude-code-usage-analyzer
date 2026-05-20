@@ -1,0 +1,32 @@
+# git 명령의 의도 분류 (Stage B 단계 3.5)
+# 같은 shell_exec 안에서도 git log(진단) vs git commit(산출) 은 다른 신호
+
+git_intent_patterns:
+  diagnostic:
+    description: "시간축 기반 진단 — 언제부터 깨졌나, 누가 바꿨나"
+    commands:
+      - regex: '^\s*git\s+log(\s|$)'
+      - regex: '^\s*git\s+blame(\s|$)'
+      - regex: '^\s*git\s+bisect(\s|$)'
+      - regex: '^\s*git\s+show(\s|$)'
+      - regex: '^\s*git\s+diff\s+[a-z0-9._-]+\.\.'   # 커밋 범위 비교
+      - regex: '^\s*git\s+reflog(\s|$)'
+
+  output:
+    description: "산출 — 변경을 외부로 내보냄"
+    commands:
+      - regex: '^\s*git\s+add(\s|$)'
+      - regex: '^\s*git\s+commit(\s|$)'
+      - regex: '^\s*git\s+push(\s|$)'
+      - regex: '^\s*git\s+tag(\s|$)'
+
+  transition:
+    description: "전환 — 브랜치/상태 이동"
+    commands:
+      - regex: '^\s*git\s+checkout(\s|$)'
+      - regex: '^\s*git\s+switch(\s|$)'
+      - regex: '^\s*git\s+merge(\s|$)'
+      - regex: '^\s*git\s+rebase(\s|$)'
+      - regex: '^\s*git\s+stash(\s|$)'
+      - regex: '^\s*git\s+pull(\s|$)'
+      - regex: '^\s*git\s+fetch(\s|$)'

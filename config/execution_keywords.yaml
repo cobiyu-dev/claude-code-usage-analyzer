@@ -1,0 +1,36 @@
+# Bash 출력을 execution_like 로 판정할 때 명령어 검사 키워드
+# Stage A 에서 사용
+
+execution_keywords:
+  # 빌드 관련
+  - build
+  - compile
+  - make
+  - cargo
+  - go build
+  - mvn
+  - gradle
+
+  # 테스트
+  - test
+  - jest
+  - pytest
+  - go test
+  - cargo test
+  - python -m pytest
+
+  # 설치/배포
+  - install
+  - deploy
+  - npm
+  - yarn
+  - pnpm
+  - pip install
+  - cargo install
+
+  # 컨테이너/CI
+  - docker
+  - docker-compose
+  - kubectl apply
+
+  # 확장 가능 — 새 키워드 자유롭게 추가
