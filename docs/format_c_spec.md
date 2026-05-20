@@ -90,6 +90,51 @@
 - 별도 필드 (왜, 변형 등) X — 본문 안에 자연스럽게 녹임
 - **사용 예시 블록은 모든 패턴에 필수**. 본문 직후 코드 블록으로 단계 1-2-3-4 형태
 
+### 가독성 룰 (다른 직군 개발자가 읽을 수 있도록)
+
+보고서를 받는 동료는 coding agent 를 쓰지만 시스템 내부 구조는 모른다. 다음 두 종류 용어는 본문·사용 예시·시계열·메타 정보 어디에도 등장하면 안 된다.
+
+#### 금지 1: 시스템 내부 라벨
+
+`outcome`, `phase`, `intro`, `main`, `verify`, `git_intent`, `diagnostic`, `episode_kind`, `with_changes`, `investigation_only`, `tooling_only`, `mini_pattern`, `mini_pattern_candidates`, `tool_microsequences`, `user_utterance_trigrams`, `situation_cluster`, `function_group`, `phase_function_groups`, `verify_phase_share`, `diagnostic_git_share`, `committed`, `pushed`, `pr_opened`, `verified_by_data`, `verified_by_run`, `delegated_and_reported`, `incremental_commits`, `single_final_commit`, `pr_with_structured_body`, `abandoned_or_paused`
+
+이건 시스템이 신호를 부르는 이름일 뿐 보고서 독자 어휘가 아니다. 본문에 들어가면 즉시 FAIL.
+
+#### 금지 2: Claude Code 도구 내부명을 그대로 노출
+
+`Bash`, `Edit`, `Read`, `Write`, `Grep`, `Glob`, `Task`, `TaskCreate`, `TaskUpdate`, `ToolSearch`, `ExitPlanMode`, `AskUserQuestion`, `Agent` (대문자 그대로의 도구 이름)
+
+이걸 본문에 그대로 쓰면 coding agent 내부를 아는 독자만 이해 가능. 일반 동사로 풀어 쓴다:
+
+| 내부명 | 본문 표기 |
+|---|---|
+| Bash | "셸 실행", "명령 실행", "스크립트 실행" |
+| Edit | "파일 수정", "코드 수정" |
+| Read | "파일 읽기" |
+| Write | "파일 작성", "새 파일 생성" |
+| Grep | "코드 검색", "패턴 검색" |
+| Glob | "파일 경로 검색" |
+| Task / Agent | "별도 세션으로 작업 위임", "서브 에이전트에 위임" |
+| TaskCreate / TaskUpdate | "단계별 to-do 관리", "작업 추적" |
+| ToolSearch | "필요한 도구 찾아 로딩" |
+| ExitPlanMode | "Plan Mode 의 계획 확정" |
+| AskUserQuestion | "사용자에게 선택지 묻기" |
+
+#### 유지 OK
+
+- AI agent 추상 구조 어휘: `Subagent`, `서브 에이전트`, `Plan Mode`, `슬래시 커맨드`, `/clear`, `별도 컨텍스트 agent`, `fresh agent`, `cold review`, `ultrathink` 같은 표현은 그대로 쓰거나 자연어로 풀어도 OK
+- MCP 표기: `grafana mcp(로그 검색 도구)`, `mysql mcp(DB 쿼리 도구)` 등. 일반 공개 도구의 MCP 이름은 그대로
+- 회사 시스템명(WMS, OMS 등) 은 본문엔 OK (사내 공유 전용)
+- 회사 내부 메서드명은 추상화 ("특정 워커" 등)
+
+### 사용 예시 블록 안에서의 도구 표기
+
+사용 예시 코드 블록은 단계 시퀀스 형태인데, 여기서 도구 내부명을 쓰는 건 일부 허용한다 (시퀀스가 짧고 구체적이라 일반 동사로 풀면 오히려 모호). 다음 두 가지 중 선택:
+- "1. grafana mcp(로그 검색 도구) 로 ... " — MCP/공개 도구는 그대로
+- "1. 파일 검색 → 의심 위치 발견" — 내부 도구는 동사화
+
+같은 사용 예시 블록 안에서 일관성만 지키면 됨.
+
 ### 사용 예시 블록 규칙
 
 목적: 본문이 줄글이라 다른 직군 동료가 자기 도구로 치환하기 어려울 때, **단계 시퀀스 형태로** 즉시 이해 가능하게.
@@ -467,6 +512,8 @@ company_system_substrings:
 | WARN | 동료 이름 | 자동 치환 (이름 → "동료") |
 | WARN | 괄호 누락 | 자동 보완 (yaml에서 기능명 가져와 추가) |
 | WARN | 사용 예시에 회사 시스템명 | Stage D 재요청 (해당 패턴의 사용 예시만 일반 도메인으로 재생성). 재시도 후에도 남으면 그대로 두되 사용자에게 한 줄 안내. |
+| WARN | 본문에 시스템 내부 라벨 등장 (outcome/phase/git_intent 등 금지어) | Stage D 재요청 (해당 패턴 본문만 일반 어휘로 재작성). |
+| WARN | 본문에 Claude Code 도구 내부명 (Bash/Edit/Read/Grep/Task 등) 그대로 노출 | Stage D 재요청. 일반 동사로 풀어쓰기. |
 
 ### 시크릿 누출 시 사용자 알림
 

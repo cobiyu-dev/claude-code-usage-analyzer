@@ -79,6 +79,32 @@ Claude(자신)가 Stage D 작업 중 보고서 작성할 때 참조하는 형식
 - 회사 내부 메서드명/엔티티명은 추상화 (`SubmitFCWorkerPackingOutbound` → `특정 워커` 등)
 - **사용 예시 블록은 모든 패턴에 필수**. 본문 직후 코드 블록 형태 (단계 1-2-3-4)
 
+### 가독성 룰 — 다른 직군 개발자 기준
+
+받는 사람은 coding agent 를 쓰지만 시스템 내부 구조는 모른다. 다음 두 종류 어휘 금지:
+
+**금지 1: 시스템 내부 라벨**
+`outcome / phase / intro / main / verify / git_intent / diagnostic / episode_kind / with_changes / investigation_only / tooling_only / mini_pattern / situation_cluster / function_group / committed / pushed / pr_opened / verified_by_data / verified_by_run / delegated_and_reported / incremental_commits / single_final_commit / pr_with_structured_body / abandoned_or_paused`
+
+본문·시계열·메타 정보 어디에도 등장 X.
+
+**금지 2: Claude Code 도구 내부명**
+`Bash, Edit, Read, Write, Grep, Glob, Task, TaskCreate, TaskUpdate, ToolSearch, ExitPlanMode, AskUserQuestion, Agent`
+
+본문에선 일반 동사로:
+- Bash → 셸 실행 / 명령 실행
+- Edit → 파일 수정
+- Read → 파일 읽기
+- Grep/Glob → 코드 검색, 파일 경로 검색
+- Task/Agent → 별도 세션으로 작업 위임, 서브 에이전트에 위임
+- TaskCreate/TaskUpdate → 단계별 to-do 관리
+- ToolSearch → 필요한 도구 찾아 로딩
+- ExitPlanMode → Plan Mode 의 계획 확정
+
+**유지 OK**
+- AI agent 추상 구조: Subagent, 서브 에이전트, Plan Mode, 슬래시 커맨드, /clear, 별도 컨텍스트 agent, fresh agent, cold review, ultrathink
+- MCP 표기: `grafana mcp(로그 검색 도구)`, `mysql mcp(DB 쿼리 도구)` 그대로
+
 ### 사용 예시 블록 규칙
 
 도메인은 4가지 중 하나만 선택:

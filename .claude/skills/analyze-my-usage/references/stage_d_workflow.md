@@ -333,6 +333,32 @@ C. 외부 검토 루프
 - 회사 시스템명 (WMS 등) 그대로 노출 (사내 공유)
 - 동료 이름은 마스킹 (config.mask_people_names = true 일 때)
 
+### 가독성 — 다른 직군 개발자 기준
+
+받는 사람은 coding agent 사용자이지만 시스템 내부 신호 이름·도구 내부명은 모른다.
+본문·시계열·메타 정보 어디에도 다음 어휘를 쓰지 말 것:
+
+**금지 1: 시스템 내부 라벨**
+outcome, phase, intro, main, verify, git_intent, diagnostic, episode_kind, with_changes, investigation_only, tooling_only, mini_pattern, situation_cluster, function_group, committed, pushed, pr_opened, verified_by_data, verified_by_run, delegated_and_reported, incremental_commits, single_final_commit, pr_with_structured_body, abandoned_or_paused
+
+**금지 2: Claude Code 도구 내부명** — 일반 동사로:
+- Bash → 셸 실행, 명령 실행
+- Edit → 파일 수정
+- Read → 파일 읽기
+- Write → 새 파일 작성
+- Grep / Glob → 코드 검색, 파일 검색
+- Task / Agent → 별도 세션 위임, 서브 에이전트 위임
+- TaskCreate / TaskUpdate → 단계별 to-do 관리, 진행 추적
+- ToolSearch → 필요 도구 찾아 로딩
+- ExitPlanMode → Plan Mode 의 계획 확정
+- AskUserQuestion → 사용자에게 선택지 묻기
+
+**유지 OK**
+- AI agent 추상 구조 (Subagent, Plan Mode, 슬래시 커맨드, /clear, 별도 컨텍스트 agent, fresh agent, cold review, ultrathink)
+- MCP 표기 (`grafana mcp(로그 검색 도구)` 등)
+
+이 룰은 **본문 어휘**에 대한 것이며, 신호 다양성(어떤 종류의 패턴을 다루는가) 점검과는 별개. 종료부 의식 패턴을 추출하되 본문에는 "verify phase outcome" 같은 어휘 X, 대신 "작업이 끝나면 ..." 같은 일반 표현으로 풀어 쓰기.
+
 ### 사용 예시 블록 작성 (모든 패턴 필수)
 
 각 패턴 본문 뒤에 코드 블록 형태의 사용 예시 추가. 줄글만 있으면 다른 직군 동료가
