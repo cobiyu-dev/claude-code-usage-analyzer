@@ -327,13 +327,17 @@ secret_patterns:
    [2] 영수님 (8회 등장)    [Y/n]
 ```
 
-자동 발견 룰:
-- 한국어 이름 패턴 (2-4자 한글 + 직함/존칭)
-- @사람태그
-- 등장 빈도 3회 이상
+자동 발견 룰은 `config/people_name_patterns.yaml` 에 분리. 정규식·직함 enum 을 코드에 박지 말 것.
 
-저장 위치: `~/.config/cc-analyzer/config.yaml` 의 `people_names` 필드
-(별도 yaml 분리 X — 사용자 config 의 일부로 관리)
+핵심:
+- 언어별 정규식 + 직함 prefix/suffix
+- @멘션 패턴
+- 등장 빈도 임계값 (yaml `min_frequency`)
+- 변형 묶기 (예: "철수" / "철수님" → 같은 사람 후보)
+
+자세한 형식은 `yaml_specs.md` 의 9번 섹션 참고.
+
+마법사가 선택받은 이름은 `~/.config/cc-analyzer/config.yaml` 의 `people_names` 필드에 저장. yaml 자체(`people_name_patterns.yaml`)는 시스템 기본값.
 
 ### 4-3. 일반 도구 화이트리스트 (마스킹 제외)
 

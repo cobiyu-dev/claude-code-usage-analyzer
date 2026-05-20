@@ -108,6 +108,7 @@ preprocess.sh는:
 1. turns.parquet 읽기
 2. 휴리스틱 1차 분할
 3. 각 에피소드에 자유 텍스트 라벨 생성 + goal 한 줄
+3.5. **에피소드 내부 구조 라벨링** — episode_kind, phase(intro/main/verify), outcome, git 의도 부여 (휴리스틱·yaml 매칭, LLM 호출 X)
 4. LLM 양방향 판단 (합칠지/끊을지/유지)
 5. 라벨 사후 클러스터링
 6. episodes.parquet 저장
@@ -116,8 +117,9 @@ preprocess.sh는:
 
 **사용자에게 알림 예시:**
 ```
-[Stage B 처리 중...] 에피소드 분할 + 라벨
-✓ 23 에피소드 (4개 클러스터로 묶임)
+[Stage B 처리 중...] 에피소드 분할 + 라벨 + 내부 구조
+✓ 23 에피소드 (4개 클러스터)
+✓ 구조 라벨: with_changes 15 / investigation_only 7 / tooling_only 1
 ```
 
 ---
@@ -135,11 +137,12 @@ Stage B 끝난 직후, Bash 도구로 postprocess.sh 호출:
 postprocess.sh는:
 1. Stage C 실행 → ~/.cache/cc-analyzer/{period}/aggregated.json
 2. 진행 상황 stdout 출력
+3. 광역 모드(디폴트) 일 때 turn 단위 미니 패턴 후보도 함께 추출 (`--curated` 면 건너뜀)
 
 **사용자에게 알림 예시:**
 ```
 [Stage C 실행 중...] 그룹별 메트릭 + 시그니처 시퀀스 + 메타 집계
-✓ aggregated.json 생성
+✓ aggregated.json 생성 (미니 패턴 후보 47개 포함)
 ```
 
 오류 발생 시 단계 8(에러 처리)로.
@@ -152,8 +155,12 @@ postprocess.sh는:
 
 큰 흐름:
 1. episodes.parquet + aggregated.json 읽기
-2. 각 그룹에서 패턴 5-8개 추출 (도메인 무관한 메서드러지 패턴)
-3. 느슨한 그룹화 판정 (3개 이상 자연 그룹 형성 시 그룹화)
+2. 각 그룹에서 패턴 추출 (도메인 무관한 메서드러지 패턴)
+   - **디폴트 = 광역 모드**: 사소한 패턴까지 다 후보로 (상한 없음, 사용자가 첨삭한다는 운영 모델)
+   - `--curated` 인자가 있을 때만 큐레이션 모드 (전체 5-8개, 1회성 폐기)
+   - 도입부 패턴뿐 아니라 phase(verify) / outcome / git_intent 신호도 함께 보고 종료부·시간축 진단·commit/PR 양상 패턴 후보까지 시도
+   - `episode_kind` 별로 적용 가능한 후보가 다름 (investigation_only 그룹은 종료부/commit 패턴 억지로 만들지 말 것)
+3. 느슨한 그룹화 판정 (3개 이상 자연 그룹 형성 시 그룹화; 광역 모드에서 패턴이 많으면 평탄 디폴트)
 4. 시계열 추이 (기간 ≥ 2주일 때)
 5. 메타 정보 (자주 쓰는 기능/도구 top N)
 6. 보고서 마크다운 생성

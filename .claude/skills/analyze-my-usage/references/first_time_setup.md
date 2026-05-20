@@ -85,12 +85,38 @@ custom_internal_mcp_xyz   → other (분류 모호)
 [Enter로 확정 / e로 수정]
 ```
 
-**(2-4) 사용자가 'e'를 누르면 수정 모드:**
+**(2-4) 분류 모호 도구 자동 폴백**
+
+Claude 가 자동 분류에서 어느 그룹인지 결정 못한 도구는 사용자에게 강제로 선택하게 하지 않는다 (약속 3 — 손작업 강제 X). 다음 순서로 폴백:
+
+1. **`other` 자동 배정**: 일단 `other` 그룹에 넣고 진행. 분석은 막힘 없이 진행됨.
+2. **분류 모호 도구 목록 표시**: 사용자에게 "이번엔 `other` 로 둘게요. 원하시면 나중에 수정 가능합니다" 안내.
+3. **수정은 옵션**: 사용자가 'e' 를 눌렀을 때만 수정 모드. Enter 면 그대로 `other` 진행.
+
+```
+[1/4] 도구 매핑 확인
+
+당신의 데이터에서 다음 도구들을 발견했고 기능 그룹으로 자동 분류했습니다:
+
+  grafana_query_logs        → log_search       ✓
+  atlassian_jira_search     → issue_tracker    ✓
+  slack_search_public       → chat             ✓
+  custom_internal_mcp_xyz   → other            ⚠️ 자동 분류 모호 (other 로 진행)
+
+자동 분류 모호한 도구가 1개 있습니다. 이번엔 `other` 로 진행하고
+나중에 `/analyze-my-usage --reconfigure` 로 수정할 수 있습니다.
+
+[Enter로 그대로 진행 / e로 지금 수정]
+```
+
+**(2-5) 사용자가 'e'를 누르면 수정 모드:**
 
 ```
 어느 도구를 어느 그룹으로 바꾸시겠어요?
 형식: <도구이름> -> <기능그룹>
 예: custom_internal_mcp_xyz -> log_search
+
+(기능 그룹 목록을 한 번 보여줌)
 
 빈 줄로 종료.
 > custom_internal_mcp_xyz -> log_search
@@ -98,7 +124,15 @@ custom_internal_mcp_xyz   → other (분류 모호)
 ✓ 수정됨
 ```
 
-**(2-5) 결과를 config.tool_function_mapping 에 저장**
+**(2-6) 신규 도구 발견 시 (일반 실행 흐름)**
+
+첫 실행 후 새 분석에서 발견한 도구가 캐시에 없으면:
+
+- 자동 분류 성공 → 캐시에 추가만 하고 사용자에게 알리지 않음 (약속 3)
+- 자동 분류 모호 → `other` 로 자동 배정 + 분석 끝나고 사용자에게 한 줄 안내 ("분석은 끝났습니다. 다음 도구는 `other` 로 분류됐어요: X, Y. 원하면 `--reconfigure`")
+- 분석 자체를 막지 말 것
+
+**(2-7) 결과를 config.tool_function_mapping 에 저장**
 
 ---
 
@@ -135,19 +169,17 @@ custom_internal_mcp_xyz   → other (분류 모호)
 
 **(3-3) 자동 발견 후보 제시**
 
-사용자 데이터에서 사람 이름 패턴 자동 검출:
-- 한국어 이름 패턴 (X님, X 매니저, X 선임, X PM, X 디자이너 등)
-- @사람태그
-- 등장 빈도 3회 이상
+사용자 데이터에서 사람 이름 패턴 자동 검출. 정규식·직함 enum 은 모두 `config/people_name_patterns.yaml` 에서 읽음 (코드에 박지 말 것).
 
-검출 알고리즘:
-```python
-# 한국어 이름 후보: 2-4자 한글 + 직함/존칭
-patterns = [
-    r'([가-힣]{2,4})(님|씨|매니저|선임|책임|PM|개발자|디자이너)',
-    r'@([가-힣]{2,4})',
-]
-```
+자동 발견 흐름:
+1. `people_name_patterns.yaml` 로드
+2. 각 lang 블록의 `name_regex + suffixes`, `prefixes + name_regex`, `tag_regex` 매칭
+3. 빈도가 `min_frequency` 이상인 후보만 유지
+4. 변형 묶기 (예: "철수" / "철수님" → 한 후보로 표시, 빈도 합산)
+
+새 언어권(일본어 さん, 중국어 先生 등) 은 yaml block 추가만으로 확장 가능. 코드 변경 불필요.
+
+자세한 형식: `docs/yaml_specs.md` 9번 섹션.
 
 자동 발견된 이름 + 빈도를 보여줌:
 

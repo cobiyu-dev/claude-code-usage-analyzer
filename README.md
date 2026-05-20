@@ -13,6 +13,8 @@ Claude Code 사용 패턴을 자동으로 문서화하는 시스템.
 - "에러나 이상 신호가 보이면 관련 로그를 통째로 수집한 뒤 분석을 시작한다"
 - "도구 간 식별자를 매개로 체이닝한다"
 - "복잡한 검토는 별도 에이전트에 위임하고 결과를 반복 반영한다"
+- "변경을 마쳤으면 데이터로 결과를 다시 확인한 뒤 보고만 받는다"
+- "현상만 보지 않고 언제부터 다르게 동작했는지를 git 으로 거슬러 올라간다"
 
 다른 도메인 개발자가 봐도 자기 도구로 치환해서 따라할 수 있는 형태.
 
@@ -31,8 +33,10 @@ Claude Code 사용 패턴을 자동으로 문서화하는 시스템.
 git clone https://github.com/cobiyu-dev/claude-code-usage-analyzer
 cd claude-code-usage-analyzer
 
-# Python 의존성 설치
-uv pip install -e .
+# Python 의존성 설치 (시스템 Python 오염 방지를 위해 venv 권장)
+python3 -m venv .venv
+.venv/bin/pip install -e .
+# 또는 uv 사용: uv venv && uv pip install -e .
 
 # Claude Code 시작 (이 디렉토리 안에서)
 claude
@@ -40,6 +44,9 @@ claude
 # 슬래시 호출
 > /analyze-my-usage --last 4w
 ```
+
+`scripts/preprocess.sh` / `postprocess.sh` 가 `./.venv/bin/python` 을 자동 감지해서 호출합니다.
+다른 Python 인터프리터를 쓰고 싶으면 `CC_ANALYZER_PYTHON=/path/to/python` 환경변수로 지정.
 
 첫 실행 시 4단계 설정 마법사 (도구 매핑 확인, 동료 이름 마스킹, 보고서 위치).
 이후 실행부터는 바로 분석.
@@ -58,9 +65,15 @@ claude
   --no-mask-names                 동료 이름 마스킹 끄기 (이번 실행만)
   --output <path>                 보고서 저장 위치 (이번 실행만)
   --reconfigure                   설정 마법사 재실행
+  --curated                       큐레이션 모드 (동료 직접 공유용, 5-8 패턴만)
 
 (인자 없으면 인터랙티브)
 ```
+
+### 두 가지 모드
+
+- **디폴트 (광역)**: 사소한 패턴까지 다 보고서에 포함. 사용자가 첨삭 후 공유하는 운영 모델
+- **`--curated`**: 핵심 5-8 패턴만. 동료에게 첨삭 없이 바로 공유할 때 사용
 
 ## 어떻게 동작하나
 
@@ -141,7 +154,10 @@ claude-code-usage-analyzer/
 │   ├── execution_keywords.yaml
 │   ├── secret_patterns.yaml
 │   ├── public_tools_whitelist.yaml
-│   └── split_signals.yaml
+│   ├── split_signals.yaml
+│   ├── outcome_signals.yaml
+│   ├── git_intent_patterns.yaml
+│   └── people_name_patterns.yaml
 │
 ├── docs/                           # 설계 명세
 │   ├── principles_user_agnostic.md     ← 시스템 약속 5개 (필독)
@@ -178,6 +194,7 @@ claude-code-usage-analyzer/
 - **Claude Code 환경 필수**: 외부 API key 로 동작하지 않음
 - **데이터 양 한계**: 너무 긴 기간 (예: 1년+) 은 컨텍스트 윈도우 초과 가능. 기간 좁혀서 시도.
 - **결정론 보장 X**: LLM 호출 단계 (Stage B, D) 가 매번 약간 다른 결과 낼 수 있음.
+- **사람 이름 자동 발견은 후보 제시 단계에서만 사용**: 영문 `@` 멘션 정규식이 Java 어노테이션(`@Transactional` 등)을 후보로 잡을 수 있음 — 첫 실행 마법사에서 사용자가 Y/n 선택하므로 최종 마스킹 결과엔 영향 없음.
 
 ## 개발 / 구현
 

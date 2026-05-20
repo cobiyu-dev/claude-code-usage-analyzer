@@ -16,6 +16,9 @@
 | `secret_patterns.yaml` | 시크릿 정규식 | Stage A, D 검증 |
 | `public_tools_whitelist.yaml` | 일반 공개 도구 목록 | Stage A, D 검증 |
 | `split_signals.yaml` | 에피소드 분할 휴리스틱 임계값/키워드 | Stage B |
+| `outcome_signals.yaml` | 에피소드 종결 신호 (commit/verify/abandon 등) | Stage B |
+| `git_intent_patterns.yaml` | git 명령의 의도 분류 (diagnostic/output/transition) | Stage B |
+| `people_name_patterns.yaml` | 사람 이름 자동 발견 정규식 (직함·언어별) | Stage A 마스킹 후보 발견 |
 
 ---
 
@@ -127,6 +130,81 @@ function_groups:
 **Stage D (보고서 도구 표기)**:
 - 일반 공개 도구 첫 등장 시 `description_ko` 를 괄호에 삽입
 - `other` 그룹은 괄호 생략
+
+### 확장 가이드 (다른 직군에서 그룹이 부족할 때)
+
+위 17개는 백엔드 + 물류 도메인 + 일반 SRE 직군 기준으로 추린 것. 다른 직군 사용자가 시스템을 돌렸을 때 자기 도구가 `other` 로만 분류된다면, 이 yaml 에 그룹을 추가하면 된다. **코드 수정 불필요.**
+
+직군별로 추가될 만한 그룹의 예 (가이드만, 본인 데이터로 박지 말 것):
+
+```yaml
+# 데이터 분석가
+data_warehouse:
+  description_ko: "데이터 웨어하우스 쿼리"
+  description_en: "data warehouse query"
+  example_tools: [bigquery, snowflake, redshift, databricks]
+
+bi_tool:
+  description_ko: "BI 대시보드 도구"
+  description_en: "BI dashboard"
+  example_tools: [looker, tableau, metabase, superset]
+
+notebook:
+  description_ko: "노트북 환경"
+  description_en: "notebook"
+  example_tools: [jupyter, colab, hex]
+
+# 프론트엔드/모바일 개발자
+ui_test:
+  description_ko: "UI 테스트 도구"
+  description_en: "UI test"
+  example_tools: [playwright, cypress, storybook, percy]
+
+package_registry:
+  description_ko: "패키지 레지스트리"
+  description_en: "package registry"
+  example_tools: [npm, yarn, pnpm, cargo, pip]
+
+# 디자이너
+asset_export:
+  description_ko: "디자인 산출물 추출"
+  description_en: "asset export"
+  example_tools: [figma_export, sketch_export]
+
+# PM / 기획자
+roadmap:
+  description_ko: "로드맵 도구"
+  description_en: "roadmap"
+  example_tools: [productboard, aha, roadmunk]
+
+survey:
+  description_ko: "설문/리서치 도구"
+  description_en: "survey/research"
+  example_tools: [typeform, surveymonkey, dovetail]
+
+# 보안/인프라
+secrets_manager:
+  description_ko: "시크릿 관리 도구"
+  description_en: "secrets manager"
+  example_tools: [vault, aws_secrets_manager, doppler]
+
+iac:
+  description_ko: "IaC 도구"
+  description_en: "infrastructure as code"
+  example_tools: [terraform, pulumi, cloudformation]
+```
+
+### 추가 시 점검 사항
+
+1. **example_tools 는 일반 공개 도구만**. 회사 내부 시스템명을 example_tools 에 박지 말 것 (그건 사용자 config 의 tool_function_mapping 에서 매핑).
+2. **description_ko 는 일반 한국어 명사구**. 회사 어휘 X.
+3. **새 그룹은 carve_out_rules.yaml 에도 룰을 추가**. 룰 미정의면 `other` 의 fallback 룰 적용됨 (동작은 함, 단 추출 품질 낮음).
+4. **약속 1 점검**: 새 그룹 정의가 본인 데이터에 끼워 맞추기인가? 다른 사용자 일반에도 통하는가?
+
+### `other` 그룹 운영 원칙
+
+- `other` 는 fallback. 자주 발생하는 도구가 `other` 에 묶이면 → 새 그룹을 만들 신호
+- 단, **본인 데이터에 자주 보인다고 무조건 새 그룹을 만들지 말 것**. 이게 다른 직군에도 보편적인 기능 카테고리인지 먼저 생각
 
 ---
 
@@ -476,6 +554,259 @@ transition_phrases:
     - "next up"
     - "alright now"
 ```
+
+---
+
+## 7. `config/outcome_signals.yaml`
+
+Stage B 작업 3 (에피소드 내부 구조 라벨링) 의 outcome 신호 판정 룰.
+**verify phase 안에서만** 매칭한다 (도입부의 commit/push 가 잘못 분류되지 않도록).
+
+```yaml
+outcomes:
+  committed:
+    description: "git commit 으로 종결"
+    detect:
+      tool: shell_exec
+      command_regex: '^\s*git\s+commit(\s|$)'
+      phase: verify
+
+  pushed:
+    description: "원격 푸시까지 진행"
+    detect:
+      tool: shell_exec
+      command_regex: '^\s*git\s+push(\s|$)'
+      phase: verify
+
+  pr_opened:
+    description: "PR 생성으로 종결"
+    detect:
+      any_of:
+        - tool: shell_exec
+          command_regex: '^\s*gh\s+pr\s+create(\s|$)'
+        - tool_name_regex: '^(mcp__)?github__create_pull_request$'
+      phase: verify
+
+  verified_by_data:
+    description: "작업 결과를 데이터로 직접 검증"
+    detect:
+      function_group_in: [db_query, log_search, metric_query, trace_view]
+      phase: verify
+
+  verified_by_run:
+    description: "앱/테스트 실행으로 결과 검증"
+    detect:
+      tool: shell_exec
+      output_type: execution_like   # Stage A 의 출력 유형 분류 결과
+      phase: verify
+
+  delegated_and_reported:
+    description: "위임 후 결과 요약만 받음"
+    detect:
+      # main 또는 verify phase 마지막 turn 이 agent 도구의 결과 요약
+      tool: agent
+      position: last_turn_of_main_or_verify
+
+  abandoned_or_paused:
+    description: "검증·종결 없이 끊김"
+    detect:
+      verify_phase_empty: true
+      last_turn_signals:
+        any_of:
+          - has_error_output: true
+          - no_assistant_response_within: 5m
+
+  # commit/PR 양상 세분화 (패턴 2)
+  # 위 committed/pushed/pr_opened 와 동시 부여 가능. 양상을 한 단계 더 라벨링.
+
+  incremental_commits:
+    description: "작업 중간중간 여러 번 commit 으로 끊어 감"
+    detect:
+      git_commits_count_gte: 2
+      commit_positions:
+        any_in: [main]   # main phase 안에 commit 이 1번 이상 있음 (verify 의 마지막 commit 외)
+
+  single_final_commit:
+    description: "작업 전체를 끝까지 끌고 가서 한 번에 commit"
+    detect:
+      git_commits_count_eq: 1
+      commit_positions:
+        all_in: [verify]
+
+  pr_with_structured_body:
+    description: "PR 본문을 구조화해 생성 (요약·테스트 계획 등 섹션)"
+    detect:
+      any_of:
+        - tool: shell_exec
+          command_regex: 'gh\s+pr\s+create.*--body'
+          body_contains_any: ["## Summary", "## Test", "## 변경", "## 요약"]
+        - tool_name_regex: '^(mcp__)?github__create_pull_request$'
+          body_contains_any: ["## Summary", "## Test", "## 변경", "## 요약"]
+      phase: verify
+```
+
+### 룰 작성 원칙
+
+- **하드코딩 금지**: 모든 정규식·임계값을 이 파일에 두기. Python 코드에 박지 말 것.
+- **약속 1 (튜닝 X)**: 본인 데이터에 맞춰 정규식 늘리지 말 것. 빠진 outcome 이 보이면 명세를 보완해 신규 outcome 으로 추가하는 게 정도.
+- **약속 5 (직군 무관)**: `committed/pushed/pr_opened` 가 비는 직군(디자이너 등)은 `verified_by_run/verified_by_data/delegated_and_reported` 만 발현되어도 무너지지 않음.
+
+---
+
+## 8. `config/git_intent_patterns.yaml`
+
+git Bash 호출을 의도별로 분류. Stage B 가 각 git turn 에 의도 태그를 붙이고, 에피소드 레벨에서는 `git_intents_used: set` 으로 집계.
+
+```yaml
+git_intent_patterns:
+  diagnostic:
+    description: "시간축 기반 진단 — 언제부터 깨졌나, 누가 바꿨나"
+    commands:
+      - regex: '^\s*git\s+log(\s|$)'
+      - regex: '^\s*git\s+blame(\s|$)'
+      - regex: '^\s*git\s+bisect(\s|$)'
+      - regex: '^\s*git\s+show(\s|$)'
+      - regex: '^\s*git\s+diff\s+[a-z0-9._-]+\.\.'   # 커밋 범위 비교
+      - regex: '^\s*git\s+reflog(\s|$)'
+
+  output:
+    description: "산출 — 변경을 외부로 내보냄"
+    commands:
+      - regex: '^\s*git\s+add(\s|$)'
+      - regex: '^\s*git\s+commit(\s|$)'
+      - regex: '^\s*git\s+push(\s|$)'
+      - regex: '^\s*git\s+tag(\s|$)'
+
+  transition:
+    description: "전환 — 브랜치/상태 이동"
+    commands:
+      - regex: '^\s*git\s+checkout(\s|$)'
+      - regex: '^\s*git\s+switch(\s|$)'
+      - regex: '^\s*git\s+merge(\s|$)'
+      - regex: '^\s*git\s+rebase(\s|$)'
+      - regex: '^\s*git\s+stash(\s|$)'
+      - regex: '^\s*git\s+pull(\s|$)'
+      - regex: '^\s*git\s+fetch(\s|$)'
+
+  # 분류 안 되면 의도 태그 없음. 빈도 낮은 잡 명령(status, branch -l)은 의도 없음으로 OK.
+```
+
+### 왜 분리하는가
+
+`git` 명령들은 모두 `shell_exec` 기능 그룹으로 묶이지만, **의도가 다르다**:
+- `git log` (진단) 가 들어있는 에피소드는 "회귀 시점 추적"이라는 별도 메서드러지 패턴
+- `git commit/push` (산출) 만 들어있는 에피소드는 "마무리 흐름"
+
+이 둘이 같은 shell_exec 빈도로 묶이면 패턴 추출이 무뎌진다. yaml 로 분리해 Stage D 가 별도 신호로 사용한다.
+
+### 직군 무관성
+
+git 을 안 쓰는 직군이면 `git_intents_used` 가 빈 set 으로 남음. 보고서에서 자연스럽게 누락 → 무너지지 않음.
+
+---
+
+## 9. `config/people_name_patterns.yaml`
+
+Stage A 가 첫 실행 마법사에서 사람 이름 자동 발견 후보를 뽑을 때 쓰는 정규식 모음.
+직함 enum 을 코드에 박지 말 것. yaml 로 분리해 언어·문화권마다 확장 가능하게.
+
+```yaml
+people_name_patterns:
+  # 한국어
+  - lang: ko
+    name_regex: '[가-힣]{2,4}'           # 2~4자 한글 (이름 후보)
+    suffixes:                              # 직함/존칭 (이름 뒤에 붙음)
+      - 님
+      - 씨
+      - 매니저
+      - 선임
+      - 책임
+      - 수석
+      - 팀장
+      - 실장
+      - 과장
+      - 차장
+      - 부장
+      - PM
+      - PO
+      - 개발자
+      - 디자이너
+      - 엔지니어
+      - 기획자
+    prefixes:                              # 직함/존칭 (이름 앞에 붙음)
+      - PM
+      - PO
+      - 매니저
+      - 선임
+      - 책임
+      - 디자이너
+      - 기획자
+    tag_regex: '@[가-힣]{2,4}'            # 멘션 표기
+
+  # 영어 (기본 패턴, 직군·조직마다 확장 가능)
+  - lang: en
+    name_regex: '[A-Z][a-z]{2,15}'         # 첫 글자 대문자 + 2~15자 (이름 후보)
+    suffixes: []                            # 영어는 직함이 앞에 오는 게 일반적
+    prefixes:
+      - Manager
+      - Senior
+      - Lead
+      - Principal
+      - Staff
+      - PM
+      - PO
+      - Designer
+      - Engineer
+    tag_regex: '@[A-Za-z][A-Za-z0-9._-]{1,30}'
+
+# 자동 발견 임계값
+min_frequency: 3        # 이 횟수 이상 등장한 후보만 사용자에게 제시
+deduplication: true     # "철수" 와 "철수님" 같은 같은 사람의 변형은 묶어서 제시
+```
+
+### 자동 발견 알고리즘
+
+```python
+def discover_name_candidates(turns, config_yaml):
+    candidates = Counter()
+    variants_of = defaultdict(set)   # 정규화된 키 -> 원본 변형 집합
+
+    for lang_block in config_yaml["people_name_patterns"]:
+        name_re = lang_block["name_regex"]
+        # name + suffix 패턴
+        for suf in lang_block.get("suffixes", []):
+            pat = re.compile(f'({name_re}){re.escape(suf)}')
+            for t in turns:
+                for m in pat.finditer(t.content):
+                    full = m.group(0)
+                    base = m.group(1)
+                    candidates[full] += 1
+                    variants_of[base].add(full)
+        # prefix + name 패턴
+        for pre in lang_block.get("prefixes", []):
+            pat = re.compile(f'{re.escape(pre)}\\s*({name_re})')
+            ...
+        # @태그
+        if "tag_regex" in lang_block:
+            ...
+
+    min_freq = config_yaml.get("min_frequency", 3)
+    return [
+        (name, count) for name, count in candidates.most_common()
+        if count >= min_freq
+    ]
+```
+
+### 사용 위치
+
+- **Stage A 첫 실행 마법사** (단계 3 — 동료 이름 마스킹): 자동 발견 후보 제시
+- 검출된 후보 자체는 마스킹 대상이 아님. 사용자가 Y/n 선택한 것만 `config.people_names` 에 들어가고, 이후 Stage D 검증에서 마스킹.
+
+### 셀프 체크
+
+- **약속 1**: 직함 enum 을 본인 조직에 맞춰 좁히지 말 것. ko/en 양쪽에 일반 직함이 들어가야 함. 본인 조직에 없는 직함도 다른 사용자에겐 있을 수 있음.
+- **약속 2**: 모든 직함을 yaml 로 분리. 코드에 박힌 정규식 없음.
+- **약속 5**: 새 언어권(일본어 さん, 중국어 先生 등) 은 yaml 에 `lang: ja` block 추가만으로 확장. 코드 변경 불필요.
 
 ---
 

@@ -39,7 +39,10 @@ claude-code-usage-analyzer/
 │   ├── function_groups.yaml
 │   ├── carve_out_rules.yaml
 │   ├── execution_keywords.yaml
-│   └── split_signals.yaml
+│   ├── split_signals.yaml
+│   ├── outcome_signals.yaml         # 에피소드 종결 신호 (Stage B 단계 3.5)
+│   ├── git_intent_patterns.yaml     # git 명령 의도 분류 (Stage B 단계 3.5)
+│   └── people_name_patterns.yaml    # 사람 이름 자동 발견 정규식 (언어별)
 │
 ├── docs/                            ← 설계 명세 문서
 │   ├── principles_user_agnostic.md
@@ -162,6 +165,7 @@ Claude가 SKILL.md 의 8단계 따라 진행
    - turns.parquet 읽기
    - 휴리스틱 분할
    - 자유 텍스트 라벨 생성
+   - 에피소드 내부 구조 라벨링 (episode_kind / phase / outcome / git 의도, yaml 매칭)
    - 양방향 판단 (합칠지/끊을지/유지)
    - 라벨 사후 클러스터링
    - episodes.parquet 저장
@@ -353,6 +357,8 @@ schema_version: 1
   --no-mask-names                 동료 이름 마스킹 끄기 (이번 실행만)
   --output <path>                 보고서 저장 위치 (이번 실행만)
   --reconfigure                   설정 마법사 재실행
+  --curated                       큐레이션 모드 (5-8 패턴, 1회성 폐기, 동료 직접 공유용)
+                                  (디폴트는 광역 모드 — 사용자가 1차 첨삭하는 운영 모델)
 
 (인자 없으면 인터랙티브)
 ```
