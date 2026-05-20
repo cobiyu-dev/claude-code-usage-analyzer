@@ -1,0 +1,15 @@
+# 사용 예시 블록의 회사 시스템명 검증용 substring 목록 (옵션)
+#
+# Stage D 후처리에서 보고서의 "**사용 예시 (...):**" 코드 블록 안에
+# 이 substring 중 하나라도 발견되면 WARN 을 띄우고 재생성을 시도한다.
+#
+# 본문엔 영향 없음. 사용 예시 블록만 검사.
+#
+# 사용자가 본인 조직의 회사 시스템 식별자를 여기에 추가할 수 있다.
+# 예시 (회사마다 다름):
+company_system_substrings: []
+# - wms
+# - oms
+# - logistics
+# - kakaostyle
+# - example_internal_svc

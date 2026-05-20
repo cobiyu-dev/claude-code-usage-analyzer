@@ -19,6 +19,7 @@
 | `outcome_signals.yaml` | 에피소드 종결 신호 (commit/verify/abandon 등) | Stage B |
 | `git_intent_patterns.yaml` | git 명령의 의도 분류 (diagnostic/output/transition) | Stage B |
 | `people_name_patterns.yaml` | 사람 이름 자동 발견 정규식 (직함·언어별) | Stage A 마스킹 후보 발견 |
+| `company_system_hints.yaml` | (옵션) 보고서 사용 예시에 들어가면 안 되는 회사 식별자 substring | Stage D 후처리 검증 |
 
 ---
 
