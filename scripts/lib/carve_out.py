@@ -30,7 +30,11 @@ def carve_out(
             command = str(tool_input.get("command", ""))
         output_str = _to_str(tool_output)
         output_type = classify_bash_output(command, output_str, execution_keywords)
-        return _apply_output_type_rule(command, output_str, output_type, output_type_rules)
+        carved = _apply_output_type_rule(command, output_str, output_type, output_type_rules)
+        # 1차 호출 (output 없음) 일 땐 텍스트가 비어 의미가 없으므로 command 를 노출 텍스트로 둔다.
+        if not output_str and command:
+            carved["text"] = command[:600]
+        return carved
 
     # 일반 그룹: 간단한 head/tail 위주 fallback (룰은 분석 가능 수준만 적용)
     return _generic_carve(function_group, tool_name, tool_input, tool_output, rule_block)

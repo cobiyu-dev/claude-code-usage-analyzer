@@ -235,6 +235,9 @@ def merge_tool_results(turns: list[Turn], carve_rules, exec_kw, output_type_rule
         keep_turns.append(t)
 
     # 2) tool_use 에 result 합쳐서 carve 다시
+    # 머지 시 1차에서 박은 input 관련 meta(command, input_preview)는 보존한다.
+    # output 관련 meta(output_type, total_lines 등) 만 새로 추가.
+    PRESERVE_FROM_FIRST_PASS = {"command", "input_preview", "tool_name"}
     for t in keep_turns:
         for tu in t.tool_uses:
             tu_id = tu.get("tool_use_id", "")
@@ -251,10 +254,14 @@ def merge_tool_results(turns: list[Turn], carve_rules, exec_kw, output_type_rule
                     output_type_rules=output_type_rules,
                 )
                 tu["output_carved"] = mask_text(carved["text"], secret_compiled)
-                # meta 머지
-                m = tu.get("meta") or {}
-                m.update(carved.get("meta") or {})
-                tu["meta"] = mask_any(m, secret_compiled)
+                # meta 머지: 1차 결과의 input 관련 키는 보존, 나머지만 update
+                old_meta = tu.get("meta") or {}
+                new_meta = carved.get("meta") or {}
+                merged = dict(new_meta)
+                for k in PRESERVE_FROM_FIRST_PASS:
+                    if old_meta.get(k):
+                        merged[k] = old_meta[k]
+                tu["meta"] = mask_any(merged, secret_compiled)
 
 
 # ---------- 메인 ----------
