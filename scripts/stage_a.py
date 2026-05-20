@@ -25,12 +25,14 @@ try:
     from .lib.tool_mapper import map_tool_to_function_group
     from .lib.carve_out import carve_out
     from .lib.people_finder import discover_candidates
+    from .lib.structure_labeler import label_turns
 except ImportError:
     sys.path.insert(0, str(Path(__file__).parent))
     from lib.masker import compile_secret_patterns, mask_any, mask_text
     from lib.tool_mapper import map_tool_to_function_group
     from lib.carve_out import carve_out
     from lib.people_finder import discover_candidates
+    from lib.structure_labeler import label_turns
 
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -68,6 +70,7 @@ def load_system_configs() -> dict:
         "execution_keywords": load_yaml(CONFIG_DIR / "execution_keywords.yaml").get("execution_keywords", []),
         "secret_patterns": load_yaml(CONFIG_DIR / "secret_patterns.yaml").get("secret_patterns", []),
         "people_patterns": load_yaml(CONFIG_DIR / "people_name_patterns.yaml"),
+        "git_intent_patterns": load_yaml(CONFIG_DIR / "git_intent_patterns.yaml"),
     }
 
 
@@ -237,6 +240,7 @@ def merge_tool_results(turns: list[Turn], carve_rules, exec_kw, output_type_rule
     # 2) tool_use 에 result 합쳐서 carve 다시
     # 머지 시 1차에서 박은 input 관련 meta(command, input_preview)는 보존한다.
     # output 관련 meta(output_type, total_lines 등) 만 새로 추가.
+    # Bash 의 경우 output_type 분류가 command 키워드에 의존하므로 1차 command 를 다시 전달.
     PRESERVE_FROM_FIRST_PASS = {"command", "input_preview", "tool_name"}
     for t in keep_turns:
         for tu in t.tool_uses:
@@ -244,10 +248,15 @@ def merge_tool_results(turns: list[Turn], carve_rules, exec_kw, output_type_rule
             if tu_id and tu_id in results:
                 raw = results[tu_id]
                 fg = tu.get("function_group", "other")
+                # 1차에서 박힌 command 를 머지 단계에 다시 전달해
+                # classify_bash_output 이 execution_keywords 매칭에 사용 가능하도록.
+                old_meta = tu.get("meta") or {}
+                preserved_command = old_meta.get("command", "")
+                tinp_for_merge = {"command": preserved_command} if preserved_command else None
                 carved = carve_out(
                     function_group=fg,
                     tool_name=tu.get("name", ""),
-                    tool_input=None,
+                    tool_input=tinp_for_merge,
                     tool_output=raw,
                     carve_rules=carve_rules,
                     execution_keywords=exec_kw,
@@ -255,7 +264,6 @@ def merge_tool_results(turns: list[Turn], carve_rules, exec_kw, output_type_rule
                 )
                 tu["output_carved"] = mask_text(carved["text"], secret_compiled)
                 # meta 머지: 1차 결과의 input 관련 키는 보존, 나머지만 update
-                old_meta = tu.get("meta") or {}
                 new_meta = carved.get("meta") or {}
                 merged = dict(new_meta)
                 for k in PRESERVE_FROM_FIRST_PASS:
@@ -334,8 +342,13 @@ def main() -> int:
         sysc["function_groups"], user_mapping, secret_compiled,
     )
 
+    # turn 단위 구조 라벨링 (git_intent, outcome 후보 신호)
+    turn_dicts = [asdict(t) for t in all_turns]
+    label_stats = label_turns(turn_dicts, sysc["git_intent_patterns"])
+    print(f"[Stage A] 구조 라벨링: {label_stats}", file=sys.stderr)
+
     # parquet 저장
-    df = pd.DataFrame([asdict(t) for t in all_turns])
+    df = pd.DataFrame(turn_dicts)
     out_path = Path(args.output).expanduser()
     out_path.parent.mkdir(parents=True, exist_ok=True)
     df.to_parquet(out_path, index=False)

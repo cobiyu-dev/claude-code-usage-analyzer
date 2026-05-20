@@ -103,6 +103,57 @@ config = yaml.load(open("~/.config/cc-analyzer/config.yaml"))
 
 `--curated` 모드에서는 이 후보를 보지 않는다. 광역 모드에서만 시도.
 
+### 검토 대상 누락 방지 체크리스트 (광역 모드 필수)
+
+광역 모드에서 "도입부 류 패턴" 만 잡고 끝내는 편향을 막기 위해, 다음 체크리스트를
+**모든 그룹에 대해** 한 번씩 적용. 신호가 약하면 후보 미생성 — 강제 X.
+
+```
+[ ] outcome_distribution 에 등장하는 모든 outcome 종류에 대해
+    "이 outcome 이 발현되는 작업 흐름은 어떤가?" 를 한 번씩 점검
+    - committed / pushed / pr_opened → 작업 마무리 흐름
+    - verified_by_data / verified_by_run → 변경 후 검증 흐름
+    - delegated_and_reported → 위임 결과 수령 흐름
+    - incremental_commits / single_final_commit → commit 단위 양상
+    - pr_with_structured_body → PR 본문 작성 양상
+    - abandoned_or_paused → 중단·재개 양상 (보고서엔 단정 X)
+
+[ ] git_intent_distribution 의 세 종류 모두 확인
+    - diagnostic → 시간축 진단 패턴
+    - output → 산출 마무리 패턴
+    - transition → 브랜치 이동 패턴
+
+[ ] phase_function_groups 의 intro / main / verify 각각 도구 분포 차이 확인
+    - intro 에만 두드러진 도구 → 작업 시작 의식 패턴 후보
+    - main 에만 두드러진 도구 → 본격 작업 도구 패턴 후보
+    - verify 에만 두드러진 도구 → 작업 종료부 의식 패턴 후보
+
+[ ] episode_kind_distribution 의 세 종류 각각 점검
+    - with_changes → 변경 + 결과 양상 패턴
+    - investigation_only → 조사 메서드러지 패턴
+    - tooling_only → 도구 자체 사용 양상 패턴
+
+[ ] mini_pattern_candidates 세 종류 모두 훑기 (광역 모드일 때)
+    - tool_microsequences → 짧은 도구 조합 의식
+    - user_utterance_trigrams → 사용자 발화 관용구
+    - tool_arg_patterns → 도구 호출 옵션 습관
+```
+
+각 항목에서 발견한 후보를 모두 **일단 적어두고**, 최종 본문 작성 시점에 비슷한 의미끼리만
+머지하거나 단독 패턴으로 유지. 어느 것도 미리 폐기하지 말 것 (`--curated` 모드가 아닌 한).
+
+### 사용자 인지 vs 데이터 발현 가드 (약속 1 함정 회피)
+
+분석 결과를 보고 사용자가 "내가 자주 한 X 패턴이 왜 없냐" 고 물어도, 그걸 보고서에
+강제 삽입하지 말 것. 대신 다음 세 가지 중 무엇인지 추적:
+
+1. **실측 신호 결함** — 그 패턴의 신호(outcome/git_intent/mini) 가 데이터에는 있는데
+   추출 단계에서 누락. 이건 코드/명세 보완 대상.
+2. **인지 편향** — 사용자가 자주 했다고 기억하지만 실제 빈도는 낮음. 보고서가 맞음.
+3. **다른 형태** — 같은 의미인데 보고서엔 다른 이름·다른 표현으로 들어가 있음.
+
+(1) 이면 다음 실행에서 자연스럽게 잡힘. (2)(3) 이면 그대로 둠. **(1) 도 끼워맞춤 X — 다음 분석에서 자연히 나올지 관찰**.
+
 ### episode_kind 별 처리
 
 `episode_kind_distribution` 을 보고 그룹의 성격을 먼저 파악한다.
