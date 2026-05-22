@@ -23,30 +23,28 @@ Claude Code 사용 패턴을 자동으로 문서화하는 시스템.
 ### 사전 요구사항
 
 - macOS 또는 Linux
-- Claude Code 설치 + 한 번이라도 사용 (`~/.claude/projects/` 에 데이터 있음)
-- Python 3.10+
-- uv 또는 pip
+- Claude Code (터미널 또는 Desktop) 설치 + 한 번이라도 사용
+- Python 3.9+ (시스템 python3 면 충분, 별도 venv·의존성은 자동 설치됨)
 
-### 설치 + 실행
+### 실행 (clone → 슬래시 호출 한 번)
 
 ```bash
 git clone https://github.com/cobiyu-dev/claude-code-usage-analyzer
 cd claude-code-usage-analyzer
 
-# Python 의존성 설치 (시스템 Python 오염 방지를 위해 venv 권장)
-python3 -m venv .venv
-.venv/bin/pip install -e .
-# 또는 uv 사용: uv venv && uv pip install -e .
-
-# Claude Code 시작 (이 디렉토리 안에서)
+# Claude Code 시작
 claude
 
 # 슬래시 호출
 > /analyze-my-usage --last 4w
 ```
 
-`scripts/preprocess.sh` / `postprocess.sh` 가 `./.venv/bin/python` 을 자동 감지해서 호출합니다.
-다른 Python 인터프리터를 쓰고 싶으면 `CC_ANALYZER_PYTHON=/path/to/python` 환경변수로 지정.
+첫 실행 시 자동으로:
+1. `.venv` 가 없으면 만들고
+2. 의존성을 한 번만 설치하고
+3. 분석을 진행
+
+별도 `pip install` 단계 불필요. 다른 Python 인터프리터를 쓰고 싶으면 `CC_ANALYZER_PYTHON=/path/to/python` 환경변수로 지정.
 
 첫 실행 시 4단계 설정 마법사 (도구 매핑 확인, 동료 이름 마스킹, 보고서 위치).
 이후 실행부터는 바로 분석.

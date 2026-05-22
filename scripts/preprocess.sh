@@ -5,15 +5,10 @@ set -euo pipefail
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 REPO_ROOT="$( cd "${SCRIPT_DIR}/.." && pwd )"
 
-# venv 자동 감지 (CC_ANALYZER_PYTHON 환경변수가 있으면 우선)
-PYTHON_BIN="${CC_ANALYZER_PYTHON:-}"
-if [ -z "${PYTHON_BIN}" ]; then
-  if [ -x "${REPO_ROOT}/.venv/bin/python" ]; then
-    PYTHON_BIN="${REPO_ROOT}/.venv/bin/python"
-  else
-    PYTHON_BIN="python3"
-  fi
-fi
+# 첫 실행이면 venv 자동 생성 + 의존성 설치 (한 번만 걸리는 작업).
+# PYTHON_BIN 을 export 해서 아래에서 그대로 사용.
+# shellcheck source=bootstrap.sh
+source "${SCRIPT_DIR}/bootstrap.sh"
 
 FROM=""
 TO=""
