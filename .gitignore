@@ -14,3 +14,9 @@ dist/
 .cache/
 *.parquet
 
+
+# 내부 작업 지시 문서 (팀원 공유 X)
+implementation_prompt.md
+
+# Claude Code 세션 lock
+.claude/scheduled_tasks.lock

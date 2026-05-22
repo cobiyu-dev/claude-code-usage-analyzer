@@ -83,11 +83,29 @@ def load_user_config(config_path: Path) -> dict:
 # ---------- jsonl 스캔 ----------
 
 def find_jsonl_files(start_date: str, end_date: str) -> list[Path]:
-    """기간 안에 timestamp 가 하나라도 들어있는 jsonl 만 후보로."""
-    projects_dir = Path.home() / ".claude" / "projects"
-    if not projects_dir.exists():
-        return []
-    return sorted(projects_dir.rglob("*.jsonl"))
+    """기간 안에 timestamp 가 하나라도 들어있는 jsonl 만 후보로.
+
+    수집 경로 두 곳:
+    1. 터미널 Claude Code: ~/.claude/projects/**/*.jsonl
+    2. Claude Desktop 의 Claude Code 모드:
+       ~/Library/Application Support/Claude/local-agent-mode-sessions/**/.claude/projects/**/*.jsonl
+       (Desktop 이 임시 워크스페이스마다 .claude/projects 를 따로 두지만 jsonl 스키마는 동일)
+    """
+    home = Path.home()
+    candidates: list[Path] = []
+
+    projects_dir = home / ".claude" / "projects"
+    if projects_dir.exists():
+        candidates.extend(projects_dir.rglob("*.jsonl"))
+
+    desktop_root = home / "Library" / "Application Support" / "Claude" / "local-agent-mode-sessions"
+    if desktop_root.exists():
+        # 임시 워크스페이스 안의 .claude/projects/**/*.jsonl 만 가져옴 (audit.jsonl 등 다른 jsonl 은 제외)
+        for p in desktop_root.rglob("*.jsonl"):
+            if ".claude/projects/" in str(p):
+                candidates.append(p)
+
+    return sorted(set(candidates))
 
 
 def in_period(ts: str, start: datetime, end: datetime) -> bool:

@@ -3,8 +3,10 @@
 ## 역할
 
 ```
-입력:  ~/.claude/projects/<encoded-cwd>/<session>.jsonl
-       (Claude Code가 자동 생성하는 raw 대화 기록)
+입력:  ~/.claude/projects/<encoded-cwd>/<session>.jsonl                              (터미널 Claude Code)
+       ~/Library/Application Support/Claude/local-agent-mode-sessions/<workspace>/   (Claude Desktop 의 Claude Code 모드)
+         .claude/projects/<encoded-cwd>/<session>.jsonl
+       (두 경로의 jsonl 스키마가 동일해 같이 수집)
 
 처리:  1. JSONL 파싱 → 정규화된 turn 객체로 변환
        2. tool_result 본문 절사 (carve-out)

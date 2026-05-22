@@ -37,8 +37,9 @@ if [ -z "${FROM}" ] || [ -z "${TO}" ]; then
   exit 3
 fi
 
-if [ ! -d "${HOME}/.claude/projects" ]; then
-  echo "Error: ~/.claude/projects/ 가 없습니다. Claude Code 를 한 번이라도 사용 후 다시 시도해주세요." >&2
+DESKTOP_SESSIONS="${HOME}/Library/Application Support/Claude/local-agent-mode-sessions"
+if [ ! -d "${HOME}/.claude/projects" ] && [ ! -d "${DESKTOP_SESSIONS}" ]; then
+  echo "Error: ~/.claude/projects/ 와 Claude Desktop 세션 디렉터리 모두 없습니다. Claude Code (터미널 또는 Desktop) 를 한 번이라도 사용 후 다시 시도해주세요." >&2
   exit 1
 fi
 

@@ -8,8 +8,6 @@
 # 사용자가 본인 조직의 회사 시스템 식별자를 여기에 추가할 수 있다.
 # 예시 (회사마다 다름):
 company_system_substrings: []
-# - wms
-# - oms
-# - logistics
-# - kakaostyle
-# - example_internal_svc
+# - your-product-api
+# - your-internal-service
+# - your-org-name

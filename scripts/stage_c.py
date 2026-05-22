@@ -101,6 +101,10 @@ def compute_group_metrics(group_eps: pd.DataFrame, cluster_name: str) -> dict:
     verify_nonempty = 0
     diagnostic_present = 0
 
+    # outcome 시퀀스 (전이 + 3-gram)
+    outcome_transitions: Counter = Counter()
+    outcome_trigrams: Counter = Counter()
+
     for _, ep in group_eps.iterrows():
         fpb = _to_dict(ep.get("function_groups_by_phase"))
         for phase in ("intro", "main", "verify"):
@@ -117,6 +121,13 @@ def compute_group_metrics(group_eps: pd.DataFrame, cluster_name: str) -> dict:
         if "diagnostic" in _to_list(ep.get("git_intents_used")):
             diagnostic_present += 1
 
+        # outcome 시퀀스 분포
+        seq = [str(x) for x in _to_list(ep.get("outcome_sequence"))]
+        for i in range(len(seq) - 1):
+            outcome_transitions[f"{seq[i]} → {seq[i+1]}"] += 1
+        for i in range(len(seq) - 2):
+            outcome_trigrams[f"{seq[i]} → {seq[i+1]} → {seq[i+2]}"] += 1
+
     # 대표 에피소드 선정
     reps = select_representatives(group_eps, fg_counter)
 
@@ -131,6 +142,8 @@ def compute_group_metrics(group_eps: pd.DataFrame, cluster_name: str) -> dict:
         "episode_kind_distribution": dict(kind_dist),
         "phase_function_groups": {k: dict(v) for k, v in phase_fg.items()},
         "outcome_distribution": dict(outcome_dist),
+        "outcome_transitions": dict(outcome_transitions.most_common(30)),
+        "outcome_trigrams": dict(outcome_trigrams.most_common(30)),
         "git_intent_distribution": dict(git_intent_dist),
         "verify_phase_share": verify_nonempty / n if n else 0.0,
         "diagnostic_git_share": diagnostic_present / n if n else 0.0,
@@ -360,11 +373,29 @@ def main() -> int:
 
     mini = extract_mini_patterns(eps) if args.mode == "broad" else None
 
+    # 개인 로컬 셋업 (다른 사람과 공유 안 하는 ~/.claude/ 설정 들) 자동 수집
+    local_setup = None
+    try:
+        import yaml
+        from lib.local_setup_extractor import extract_all as extract_local_setup
+        repo_root = Path(__file__).resolve().parent.parent
+        sp_path = repo_root / "config" / "secret_patterns.yaml"
+        sp = []
+        if sp_path.exists():
+            with sp_path.open() as f:
+                sp = (yaml.safe_load(f) or {}).get("secret_patterns") or []
+        local_setup = extract_local_setup(repo_root, sp)
+    except Exception as e:
+        print(f"[Stage C] local_setup 수집 실패 (무시): {e}", file=sys.stderr)
+
     result = {
         "start_date": str(start_date.date()) if pd.notna(start_date) else None,
         "end_date": str(end_date.date()) if pd.notna(end_date) else None,
         "period_days": period_days,
-        "session_count": int(eps["session_ids"].apply(lambda x: len(_to_list(x))).sum()) if "session_ids" in eps.columns else 0,
+        "session_count": (
+            len({str(s) for sids in eps["session_ids"] for s in _to_list(sids)})
+            if "session_ids" in eps.columns else 0
+        ),
         "episode_count": int(len(eps)),
         "mode": args.mode,
         "groups": groups,
@@ -373,6 +404,7 @@ def main() -> int:
         "top_tools": meta["top_tools"],
         "timeseries": timeseries,
         "mini_pattern_candidates": mini,
+        "local_setup": local_setup,
     }
 
     out_path = Path(args.output).expanduser()
