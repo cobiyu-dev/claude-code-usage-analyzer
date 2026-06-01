@@ -361,16 +361,43 @@ def compute_tool_sequence(turns_slice: pd.DataFrame) -> list[str]:
     return seq
 
 
+# 시스템 트랜스크립트 마커 — 사용자가 친 메시지가 아니라 Claude Code 시스템 생성 텍스트.
+# user_utterances 본문에서 잘라낸다 (의미 신호는 Stage A 의 marker_* feature 로 별도 보관).
+SYSTEM_PREFIX_MARKERS = (
+    "<command-name>",
+    "<local-command-stdout>",
+    "<local-command-caveat>",
+    "<task-notification>",
+    "<task-notification ",
+    "<bash-input>",
+    "<bash-stdout>",
+    "<bash-stderr>",
+    "<system-reminder>",
+    "[Request interrupted by user]",
+    "[Request interrupted by user for tool use]",
+    "Your task is to create a detailed summary of the conversation",
+    "This session is being continued from a previous conversation",
+)
+
+
+def is_system_text(txt: str) -> bool:
+    if not txt:
+        return True
+    s = txt.lstrip()
+    return any(s.startswith(m) for m in SYSTEM_PREFIX_MARKERS)
+
+
 def extract_user_utterances(turns_slice: pd.DataFrame, max_per_episode: int = 8) -> list[str]:
     out = []
     for _, row in turns_slice.iterrows():
         if row["role"] == "user" and row["content"]:
             txt = (row["content"] or "").strip()
-            if txt and not txt.startswith("<command-name>"):
-                # 짧게 자르기
-                out.append(txt[:200].replace("\n", " "))
-                if len(out) >= max_per_episode:
-                    break
+            if not txt or is_system_text(txt):
+                continue
+            # 짧게 자르기
+            out.append(txt[:200].replace("\n", " "))
+            if len(out) >= max_per_episode:
+                break
     return out
 
 
@@ -559,6 +586,14 @@ def main():
         features = detect_claude_code_features(sl)
         situation = cluster_label(label)
 
+        # 시스템 마커 빈도 카운트 (turn 별 features 의 marker_* 합산)
+        marker_counts: dict = {}
+        for _, trow in sl.iterrows():
+            for f in _safe_list(trow.get("claude_code_features")):
+                if isinstance(f, str) and f.startswith("marker_"):
+                    name = f[len("marker_"):]
+                    marker_counts[name] = marker_counts.get(name, 0) + 1
+
         function_groups_used = sorted({fg for fgs in fg_per_turn_set for fg in fgs})
         tools_used = sorted({tu.get("name") for tu in (t for ts in tool_uses_list for t in ts) if tu.get("name")})
         # 위 컴프리헨션 bug 회피
@@ -588,6 +623,7 @@ def main():
             "function_group_sequence_by_phase_json": json.dumps(fg_seq_phase),
             "tool_sequence": tool_seq,
             "user_utterances": user_utts,
+            "marker_counts": json.dumps(marker_counts),
         })
 
     print(f"[Stage B] 에피소드 라벨링 완료: {len(episode_rows)}")
@@ -621,6 +657,15 @@ def main():
         r["function_groups_by_phase_json"] = json.dumps(fg_by_phase)
         r["function_group_sequence_by_phase_json"] = json.dumps(fg_seq_phase)
         r["episode_kind"] = classify_episode_kind(fg_per_turn_set)
+
+        # marker_counts 재계산 (머지 후 turn 시퀀스가 바뀌었을 수 있음)
+        mc: dict = {}
+        for _, trow in sl.iterrows():
+            for f in _safe_list(trow.get("claude_code_features")):
+                if isinstance(f, str) and f.startswith("marker_"):
+                    name = f[len("marker_"):]
+                    mc[name] = mc.get(name, 0) + 1
+        r["marker_counts"] = json.dumps(mc)
 
 
     # outcome / git intent 분포 통계

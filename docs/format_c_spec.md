@@ -448,6 +448,23 @@ Stage D 가 패턴을 도출할 때 다음 신호를 그대로 한 종류로 정
 | 사용자 첫 메시지에 코드/명령/쿼리 본문이 **일정 길이 이상 그대로 붙여 들어오는** 케이스가 그룹 안에서 반복 | "외부 출력·본문을 그대로 첫 메시지로 던지고 의미 해석을 시킨다" 류 (도메인은 본문 종류로 분리 — 아래 가드 참조) |
 | `outcome_sequences` 에 같은 outcome 이 **둘러싸는 패턴** (A→B→A) 또는 **연쇄** (A→B→C) 가 의미 있는 빈도 | "본인이 한 검증·작업을 다음 도구로 잇고 다시 처음 도구로 돌아와 확인하는 흐름" 류. 시퀀스를 그대로 추상화하지 말고 **대표 에피소드 실제 발화** 의 구체성을 살려 추출 (예: 사용자가 4단계로 발화했으면 4단계로) |
 | 신호는 빈약한데 turn 시퀀스에 같은 도구로 다른 인자가 반복 (예: db_query 3회+ 동일 에피소드) | "한 도구를 인자만 바꿔 반복 호출하며 점진적으로 좁힌다" 류 |
+| `tone_keyword_counts["plan_first"]` 가 작지 않음 | "본격 작업 전 계획 먼저 박기" 류 |
+| `tone_keyword_counts["role_split"]` 가 작지 않음 | "사람·AI 분담 통보하고 시작" 류 |
+| `tone_keyword_counts["option_choose"]` 가 작지 않음 | "후보 펼치게 한 다음 한 개 고르기" 류 |
+| `tone_keyword_counts["hypothesis_unfold"]` 가 작지 않음 | "본인 가정 박고 결과 같이 펼치기" 류 |
+| `tone_keyword_counts["polish_again"]` 가 작지 않음 | "결과물 표현·이름까지 다시 다듬게 시키기" 류 |
+| `tone_keyword_counts["interrupt_correct"]` 가 작지 않음 | "안 맞으면 즉시 인터럽트 정정" 류 |
+| `tone_keyword_counts["self_validate_full"]` 가 작지 않음 | "띄우기·호출·DB 검증까지 한 번에 맡기기" 류 |
+| `tone_keyword_counts["ask_objective"]` 가 작지 않음 | "별도 창에 객관 검토 받기" 류 |
+| `tone_keyword_counts["diff_models"]` 가 작지 않음 | "다른 모델로 한 번 더 검토" 류 |
+| `tone_keyword_counts["loop_n_times"]` 가 작지 않음 | "N회 반복 검토 루프 만들기" 류 |
+| `tone_keyword_counts["external_doc_first"]` 가 작지 않음 | "작업서·스펙 문서 박고 시작" 류 |
+| `tone_keyword_counts["trace_chain_logs"]` 가 작지 않음 | "trace id 로 여러 앱 로그 잇고 가설 세워 검증하기" 류 (한 서비스 로그만 보지 않고 호출 흐름 전체를 이어 붙임) |
+| `meaningful_markers["session_continue_episodes"]` 가 작지 않음 | "끊긴 자리에서 그대로 이어가기" 류 (컨텍스트 리셋 후 작업 재개) |
+| `meaningful_markers["multi_interrupt_episodes"]` 가 작지 않음 | "안 맞으면 인터럽트로 방향 정정" 류 |
+| `meaningful_markers["background_task_notification_episodes"]` 가 작지 않음 | "백그라운드로 던지고 알림으로 받기" 류 |
+| `meaningful_markers["context_compact_episodes"]` 가 작지 않음 | "/compact 로 컨텍스트 정리 후 진행" 류 |
+| `meaningful_markers["teammate_message_episodes"]` 가 작지 않음 | "별도 창 동료 AI 호출" 류 (역할 명시 가능) |
 
 판정 기준:
 - 단일 신호 하나만으로 패턴 문장 만들지 말 것. 신호 + 대표 에피소드의 실제 turn 흐름이 일치해야 패턴으로 채택.

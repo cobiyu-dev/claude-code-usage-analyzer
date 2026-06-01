@@ -204,6 +204,13 @@ def normalize_record(
         if nm == "Task" or nm == "Agent":
             feats.append("subagent")
 
+    # 시스템 메타 마커 검출 — 본문에 새지 않게 별도 신호로 격상
+    # (claude_code_features 와 별개로 turn 단위 흐름 신호로 저장)
+    meta_markers = detect_system_markers(txt_joined)
+    if meta_markers:
+        for mk in meta_markers:
+            feats.append(f"marker_{mk}")
+
     # 시크릿 마스킹
     masked_text = mask_text(txt_joined, secret_compiled)
 
@@ -217,6 +224,30 @@ def normalize_record(
         tool_uses=tool_uses,
         claude_code_features=sorted(set(feats)),
     )
+
+
+# 시스템 트랜스크립트 마커 (사용자 발화가 아닌 시스템 생성 텍스트)
+# 별도 신호로 인식해 Stage B/C 가 의미 있는 메타 패턴으로 활용 가능하게 함.
+# 데이터 무관 일반 룰 (Claude Code 자체가 만드는 마커들).
+SYSTEM_MARKERS = (
+    ("continue", ("Continue from where you left off", "continue from where you left off")),
+    ("interrupted", ("Request interrupted by user", "[Request interrupted by user]")),
+    ("task_notification", ("<task-notification>", "<task-notification ")),
+    ("local_command", ("<local-command-stdout>", "<local-command-caveat>")),
+    ("compact", ("This session is being continued", "ran out of context")),
+    ("no_user_prompt", ("(no user prompt)", "No user prompt found")),
+    ("teammate_message", ("<teammate-message",)),
+)
+
+
+def detect_system_markers(text: str) -> list[str]:
+    if not text:
+        return []
+    out: list[str] = []
+    for name, needles in SYSTEM_MARKERS:
+        if any(n in text for n in needles):
+            out.append(name)
+    return out
 
 
 def _flatten_result(content: Any) -> str:

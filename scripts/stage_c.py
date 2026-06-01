@@ -131,6 +131,16 @@ def compute_group_metrics(group_eps: pd.DataFrame, cluster_name: str) -> dict:
     # 대표 에피소드 선정
     reps = select_representatives(group_eps, fg_counter)
 
+    # 어조 키워드 카운트 (그룹 전체 본문 매칭)
+    tone_counter: Counter = Counter()
+    for _, ep in group_eps.iterrows():
+        utters = " ".join(str(x) for x in _to_list(ep.get("user_utterances")))
+        for name, cnt in count_tone_keywords(utters).items():
+            tone_counter[name] += cnt
+
+    # 시스템 마커 카운트
+    markers = count_system_markers(group_eps)
+
     return {
         "cluster_name": cluster_name,
         "episode_count": n,
@@ -150,6 +160,8 @@ def compute_group_metrics(group_eps: pd.DataFrame, cluster_name: str) -> dict:
         "representative_episodes": reps,
         "signatures": extract_signatures(group_eps),
         "phase_signatures": extract_phase_signatures(group_eps),
+        "tone_keyword_counts": dict(tone_counter),
+        "system_markers": markers,
     }
 
 
@@ -300,6 +312,98 @@ def simple_tokenize(text: str) -> list[str]:
     return [m.group(0).lower() for m in WORD_TOKEN.finditer(text or "")]
 
 
+# 일반 어조 키워드 — 데이터 무관 (한국·영어 일반 표현)
+# 패턴 검출 룰이 아니라 "본문에 이런 어조가 얼마나 자주 나오나" 안내용.
+# Stage D 가 본문 훑을 때 참조하는 보조 신호. 임계값 없음.
+TONE_KEYWORDS = {
+    "plan_first": [r"계획을\s*세", r"plan\s*을", r"plan\s*먼저", r"plan\s*부터", r"플랜을\s*(설계|세|만들)", r"어떻게\s*할지"],
+    "role_split": [r"내가\s*.{0,10}(할게|할께|할거야|만질게|만질께)", r"나는\s*.{0,15}(할게|할께|직접)", r"너가\s*.{0,15}(처리|작업|해)"],
+    "option_choose": [r"옵션\s*[A-Z\d]", r"방안\s*[A-Z\d]", r"[A-Z]\s*로\s*가자", r"[A-Z]\s*로\s*해줘"],
+    "hypothesis_unfold": [r"만약\s.{0,20}(라면|이면|하면)", r"이런\s*가정(이|이라)", r"~?(가정|가설)\s*(에서|이라면)"],
+    "polish_again": [r"너무\s*장황", r"가독성", r"읽기\s*(좋|쉽)게", r"보기\s*좋게", r"줄글", r"좀\s*더\s*명확"],
+    "interrupt_correct": [r"아니\s.{0,5}(그게|그것|작업)", r"내가\s*원했던", r"그게\s*아니라"],
+    "self_validate_full": [
+        r"profile\s*로\s*(띄|실행)", r"직접\s*(띄|실행|돌)",
+        r"alpha\s*(db|DB)", r"curl\s*(만들|줘|호출)",
+    ],
+    "ask_objective": [r"객관적으로", r"독립적으로\s*(재|검토)", r"이전\s*분석에\s*편향"],
+    "diff_models": [r"gemini|gpt-|chatgpt|다른\s*모델"],
+    "loop_n_times": [r"\d+\s*번\s*(까지)?\s*반복", r"만족할\s*때까지", r"결론.{0,5}나올때까지"],
+    "external_doc_first": [r"\.md\s*(에서|를)", r"PRD|prd", r"notion\.so", r"페이지를?\s*(참고|읽|봐)"],
+    "trace_chain_logs": [
+        r"trace_?id", r"\.trace_id", r"dd\.trace",
+        r"같은\s*(request|trace|호출).{0,15}(로그|봐|이어|검색)",
+        r"(여러|다른|인접)\s*(서비스|app|모듈).{0,10}(로그|검색)",
+    ],
+}
+
+# 시스템 마커 — Stage A 의 detect_system_markers 가 부여한 turn 단위 신호를
+# episode 레벨로 합산. 메서드러지 패턴 후보로 격상 (continue/interrupted/notification).
+SYSTEM_MARKER_NAMES = ("continue", "interrupted", "task_notification", "compact", "teammate_message")
+
+# 노이즈 trigram (시스템 트랜스크립트에서 흘러나오는) — mini_pattern_candidates 에서 제외
+# Stage A 에서 분리했지만 user_utterances 본문에도 남아 있을 수 있어 한 번 더 거름.
+NOISE_TRIGRAMS = {
+    # 인터럽트 마커 파편
+    ("no", "user", "prompt"), ("user", "prompt", "no"), ("prompt", "no", "user"),
+    ("request", "interrupted", "by"), ("interrupted", "by", "user"),
+    ("by", "user", "for"), ("user", "for", "tool"), ("for", "tool", "use"),
+    # Skill 헤더 파편 (Claude Code skill 호출 본문)
+    ("base", "directory", "for"), ("directory", "for", "this"), ("for", "this", "skill"),
+    ("this", "skill", "users"), ("skill", "users", "cobi"),
+    # local-command-caveat 시스템 마커 파편
+    ("local", "command", "caveat"), ("command", "caveat", "caveat"), ("caveat", "caveat", "the"),
+    ("caveat", "the", "messages"), ("the", "messages", "below"), ("messages", "below", "were"),
+    # claude 자체 task 컨텍스트 요약 파편
+    ("of", "the", "conversation"),
+    # 사용자 home/desktop 경로 파편 (마스킹 후에도 남는 토큰)
+    ("users", "cobi", "yu"), ("cobi", "yu", "desktop"),
+    ("yu", "desktop", "workspace"), ("desktop", "workspace", "wms"),
+    ("desktop", "workspace", "logistics"),
+}
+
+# 노이즈 토큰 — trigram 한 자리에라도 들어가면 제외할 토큰 (개별 단어 기준)
+NOISE_TOKENS_IN_TRIGRAM = {"caveat", "stdout", "stderr"}
+
+
+def count_tone_keywords(text: str) -> dict:
+    """본문 한 덩어리에서 어조 키워드 종류별 매칭 카운트."""
+    out: dict = {}
+    if not text:
+        return out
+    for name, patterns in TONE_KEYWORDS.items():
+        c = 0
+        for p in patterns:
+            c += len(re.findall(p, text))
+        if c:
+            out[name] = c
+    return out
+
+
+def count_system_markers(group_eps: pd.DataFrame) -> dict:
+    """그룹 안 에피소드들의 marker_counts 합산.
+    Stage B 가 turn 별 marker_* feature 를 합쳐 episode 레벨 카운트로 만들었음.
+    """
+    out: Counter = Counter()
+    interrupt_multi_eps = 0
+    for _, ep in group_eps.iterrows():
+        mc_raw = ep.get("marker_counts")
+        if mc_raw is None:
+            continue
+        try:
+            mc = json.loads(mc_raw) if isinstance(mc_raw, str) else dict(mc_raw)
+        except (json.JSONDecodeError, TypeError):
+            continue
+        for name, cnt in mc.items():
+            out[name] += cnt
+        if mc.get("interrupted", 0) >= 2:
+            interrupt_multi_eps += 1
+    res = dict(out)
+    if interrupt_multi_eps:
+        res["interrupted_multi_episodes"] = interrupt_multi_eps
+    return res
+
+
 def extract_mini_patterns(eps: pd.DataFrame) -> dict:
     """
     turns 시퀀스 정보가 episodes.parquet 에 충분히 안 들어있을 수 있으므로,
@@ -315,7 +419,7 @@ def extract_mini_patterns(eps: pd.DataFrame) -> dict:
             for i in range(len(seq) - n + 1):
                 micro[tuple(seq[i:i + n])] += 1
 
-    # 2) user utterance trigram
+    # 2) user utterance trigram (시스템 노이즈 제외)
     trigrams: Counter = Counter()
     for _, ep in eps.iterrows():
         utters = " ".join(str(x) for x in _to_list(ep.get("user_utterances")))
@@ -323,15 +427,42 @@ def extract_mini_patterns(eps: pd.DataFrame) -> dict:
             utters = str(ep.get("goal") or "") + " " + str(ep.get("label") or "") + " " + str(ep.get("situation_raw") or "")
         toks = simple_tokenize(utters)
         for i in range(len(toks) - 2):
-            trigrams[tuple(toks[i:i + 3])] += 1
+            tri = tuple(toks[i:i + 3])
+            if tri in NOISE_TRIGRAMS:
+                continue
+            if any(t in NOISE_TOKENS_IN_TRIGRAM for t in tri):
+                continue
+            trigrams[tri] += 1
 
     # 3) tool arg pattern — episodes.parquet 에 인자 정보가 일반적으로 없음 → 빈 dict
     arg_patterns: dict = {}
+
+    # 4) 의미 마커 — 전체 에피소드의 marker_counts 합산 (Stage B 가 부여)
+    meaningful_markers: Counter = Counter()
+    for _, ep in eps.iterrows():
+        mc_raw = ep.get("marker_counts")
+        if mc_raw is None:
+            continue
+        try:
+            mc = json.loads(mc_raw) if isinstance(mc_raw, str) else dict(mc_raw)
+        except (json.JSONDecodeError, TypeError):
+            continue
+        if mc.get("continue", 0):
+            meaningful_markers["session_continue_episodes"] += 1
+        if mc.get("interrupted", 0) >= 2:
+            meaningful_markers["multi_interrupt_episodes"] += 1
+        if mc.get("task_notification", 0):
+            meaningful_markers["background_task_notification_episodes"] += 1
+        if mc.get("compact", 0):
+            meaningful_markers["context_compact_episodes"] += 1
+        if mc.get("teammate_message", 0):
+            meaningful_markers["teammate_message_episodes"] += 1
 
     return {
         "tool_microsequences": [(list(k), v) for k, v in micro.most_common(50)],
         "user_utterance_trigrams": [(list(k), v) for k, v in trigrams.most_common(50)],
         "tool_arg_patterns": arg_patterns,
+        "meaningful_markers": dict(meaningful_markers),
     }
 
 

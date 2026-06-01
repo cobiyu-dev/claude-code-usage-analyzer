@@ -57,7 +57,9 @@ config = yaml.load(open("~/.config/cc-analyzer/config.yaml"))
 
 #### (a) 본문 1차 훑기 — 모든 추출의 출발점 (필수)
 
-각 그룹마다 대표 에피소드 **3-5개**의 user_utterances **전문**을 읽는다 (라벨/요약이 아니라 실제 발화 본문).
+각 그룹마다 대표 에피소드 **8-10개**의 user_utterances **전문**을 읽는다 (광역 모드 디폴트). `--curated` 모드일 때만 3-5개로 줄인다. 광역 모드에서 표본이 작으면 어조 패턴 (분담 통보 · 가정 펼치기 · "내가 X 할게" 류) 처럼 도구·outcome 신호엔 안 잡히는 흐름을 놓치게 된다.
+
+대형 그룹 (전체 에피소드의 50% 이상 차지하는 잡식 그룹 — 보통 misc_task) 도 건너뛰지 말 것. 광역 모드에선 잡식 그룹에 다양한 어조 패턴이 깔려 있을 수 있다 — 그룹 성격이 잡식이라고 무시하면 누락이 커진다.
 
 읽으면서 다음 질문을 머릿속에 두고 후보를 적어둔다:
 - 같은 종류의 발화가 여러 에피소드에서 반복되는가?
@@ -65,6 +67,37 @@ config = yaml.load(open("~/.config/cc-analyzer/config.yaml"))
 - 한 작업의 시작·중간·종료 시점에 각각 특징적 발화가 있는가?
 
 후보는 자유 형식으로 짧게 ("작업 끝나면 PR 코멘트를 가져와 반영하게 시키는 흐름 — 2건 보임" 같이). **빈도가 낮아도 메서드러지가 명확하면 후보로 적어둔다** — 후속 필터링 단계에서 거른다.
+
+#### (a-2) 어조 카운트로 빠진 그룹 점검 (필수)
+
+`aggregated.json` 의 그룹별 `tone_keyword_counts` 와 `system_markers` 를 한 번씩 본다. 카운트가 잡힌 키워드 종류가 본문에 실제로 어떻게 발화되는지 그 그룹에서 짧게 한두 건 확인. 카운트가 잡혔는데 본문 훑기 8-10건 안에서 안 보이면 그룹 내 표본을 더 늘려 본문 확인.
+
+키워드 → 후보 패턴 매핑 (참고 사례 — 검출 룰 아님, 본문 의미가 일치해야만 채택):
+
+| 어조 키워드 | 후보 패턴 방향 |
+|---|---|
+| `plan_first` | "본격 작업 전 계획 먼저 박기" |
+| `role_split` | "누가 뭐 할지 정하고 시작" |
+| `option_choose` | "후보 펼치게 한 다음 한 개 고르기" |
+| `hypothesis_unfold` | "본인 가정 박고 결과 같이 펼치기" |
+| `polish_again` | "결과물 표현·이름까지 다듬게 시키기" |
+| `interrupt_correct` | "안 맞으면 인터럽트로 방향 정정" |
+| `self_validate_full` | "띄우기·호출·DB 검증 한 번에 맡기기" |
+| `ask_objective` | "별도 context 서브 agent에게 객관 검토받기" |
+| `diff_models` | "다른 모델로 한 번 더 검토" |
+| `loop_n_times` | "N회 반복 검토 루프 만들기" |
+| `external_doc_first` | "작업서·스펙 문서 박고 시작" |
+| `trace_chain_logs` | "trace id 로 여러 앱 로그 잇고 가설 세워 검증" |
+
+`system_markers` 의 의미 마커:
+
+| 마커 | 후보 패턴 방향 |
+|---|---|
+| `session_continue_episodes` | "끊긴 자리에서 그대로 이어가기" |
+| `multi_interrupt_episodes` | "안 맞으면 즉시 인터럽트 정정" |
+| `background_task_notification_episodes` | "백그라운드로 던지고 알림으로 받기" |
+| `context_compact_episodes` | "/compact 로 컨텍스트 정리 후 진행" |
+| `teammate_message_episodes` | "별도 창 동료 AI 호출" (tmux teammate. 위임용 별도 context 서브 agent 와 다른 개념 — 섞지 말 것) |
 
 #### (b) 집계 신호로 보강
 
@@ -150,6 +183,13 @@ config = yaml.load(open("~/.config/cc-analyzer/config.yaml"))
     형태 카테고리는 명세에 미리 박혀 있지 않다. 대표 에피소드의 실제 본문을 보고 어떤 종류가 반복되는지 그 자리에서 분리.
 
 [ ] 종료부 의식이 PR 생성으로 끝나는지, 그 이후 절차 (코멘트 가져오기·리뷰 반영·재푸시 등) 가 본문에 이어지는지 본문에서 확인
+
+[ ] **tone_keyword_counts** 의 모든 키워드 종류 한 번씩 점검
+    그 그룹에서 카운트 ≥ 1 이면 본문 한두 건은 직접 봐서 의미 일치 확인. 일치하면 후보 추가.
+
+[ ] **system_markers** / **meaningful_markers** 의 모든 마커 종류 한 번씩 점검
+    session_continue / multi_interrupt / background_task_notification / context_compact / teammate_message 가
+    그룹에 잡혀 있으면 본문 한 건 보고 그 흐름이 본문에 살아 있는지 확인
 ```
 
 각 항목에서 발견한 후보를 모두 **일단 적어두고**, 최종 본문 작성 시점에 비슷한 의미끼리만
@@ -362,11 +402,13 @@ C. 외부 검토 루프
 `format_c.md` 의 형식 명세 정확히 따르기.
 
 큰 흐름:
-1. 메타 헤더 (기간, 세션 수, 에피소드 수 등)
-2. 주요 워크플로 패턴 (그룹화 또는 평탄)
-3. 시계열 추이 (기간 ≥ 2주일 때만)
-4. 사용 메타 정보 (자주 쓰는 기능/도구 top N)
-5. 참고 (raw 데이터 위치, 오류 신고 등)
+1. 메타 헤더 (기간, 대화 세션 수, 작업 묶음 수 등)
+2. "자주 보이는 작업 방식" 섹션 (그룹화 또는 평탄)
+3. "주별 활동 추이" 섹션 (기간 ≥ 2주일 때만. 월 단위면 "월별 활동 추이")
+4. "사용 통계" 섹션 (자주 쓴 기능/도구 top N)
+5. "참고" 섹션 (원본 데이터 위치, 오류 신고 등)
+
+**섹션 이름은 위 문구 그대로 사용. "주요 워크플로 패턴", "시계열 추이", "사용 메타 정보", "raw 데이터" 같은 외래어·메타용어는 보고서에 절대 박지 않는다.** 자세한 어휘 규칙은 `format_c.md` 의 "본문 어휘" 섹션 참조.
 
 ### 패턴 본문 작성 시 주의
 
@@ -418,14 +460,18 @@ outcome, phase, intro, main, verify, git_intent, diagnostic, episode_kind, with_
 - Read → 파일 읽기
 - Write → 새 파일 작성
 - Grep / Glob → 코드 검색, 파일 검색
-- Task / Agent → 별도 세션 위임, 서브 에이전트 위임
+- Task / Agent → **별도 context 서브 agent에게 위임** (지금 창 안에서 깨끗한 컨텍스트로 띄우는 보조 AI. "별도 창" 이 아님)
 - TaskCreate / TaskUpdate → 단계별 to-do 관리, 진행 추적
 - ToolSearch → 필요 도구 찾아 로딩
-- ExitPlanMode → Plan Mode 의 계획 확정
+- ExitPlanMode → 계획 모드(Plan Mode)의 계획 확정
 - AskUserQuestion → 사용자에게 선택지 묻기
 
+**용어 구분 (헷갈리지 말 것)**
+- `Task/Agent` 도구 = **별도 context 서브 agent** = 지금 작업 중인 창 안에서 깨끗한 컨텍스트의 보조 AI를 띄워 위임. 사용자가 평소 가장 많이 쓰는 방식 → "별도 context 서브 agent" 로 표기.
+- `teammate` (tmux 별도 세션) = 진짜 다른 창의 동료 AI. 거의 안 씀 → "별도 창 동료 AI". 둘을 섞지 말 것.
+
 **유지 OK**
-- AI agent 추상 구조 (Subagent, Plan Mode, 슬래시 커맨드, /clear, 별도 컨텍스트 agent, fresh agent, cold review, ultrathink)
+- AI agent 추상 구조 (별도 context 서브 agent, Subagent, 계획 모드(Plan Mode), 슬래시 커맨드, /clear, fresh agent, cold review, ultrathink)
 - MCP 표기 (`grafana mcp(로그 검색 도구)` 등)
 
 이 룰은 **본문 어휘**에 대한 것이며, 신호 다양성(어떤 종류의 패턴을 다루는가) 점검과는 별개. 종료부 의식 패턴을 추출하되 본문에는 "verify phase outcome" 같은 어휘 X, 대신 "작업이 끝나면 ..." 같은 일반 표현으로 풀어 쓰기.
@@ -526,7 +572,7 @@ with open(draft_path, 'w') as f:
 
 ### 5.5: 개인 로컬 셋업 섹션 추가
 
-`aggregated.json` 의 `local_setup` 키가 비어있지 않으면 보고서 끝 (`## 사용 메타 정보` 와 `## 참고` 사이) 에 `## 개인 로컬 셋업` 섹션을 추가한다.
+`aggregated.json` 의 `local_setup` 키가 비어있지 않으면 보고서 끝 (`## 사용 통계` 와 `## 참고` 사이) 에 `## 내 로컬 셋업` 섹션을 추가한다.
 
 데이터 6가지를 자연어 설명으로 풀어 쓴다 (수치 나열 X, "왜 깔아 뒀는지" 가 드러나게):
 
@@ -570,3 +616,29 @@ with open(draft_path, 'w') as f:
 **약속 5 (일반화 강건성)**:
 - 도메인 무관성 필터링 거침 (단계 3) → OK
 - 다른 직군 사람이 읽고 자기 도구로 치환 가능한지 확인 → OK
+
+---
+
+## 단계 2 종료 조건 (Goal-Driven 체크)
+
+다음 항목이 모두 충족돼야 단계 3 (도메인 무관성 필터링) 으로 넘어간다. 충족 안 되면
+그 그룹·그 신호로 돌아가 본문을 한 번 더 본다. **loop 가 아니라 명시적 종료 조건** —
+다 충족됐는지 한 번에 점검.
+
+```
+[ ] 그룹 N개 중 episode_count ≥ 5 인 모든 그룹에서 본문 훑기 1회 이상 수행됨
+    (대형 그룹 misc_task 포함 — "잡식이라" 라는 이유로 건너뛰지 말 것)
+
+[ ] 각 그룹에서 tone_keyword_counts 의 모든 키워드 종류 중 카운트 ≥ 1 인 것은
+    본문 한 건 이상 확인됨
+
+[ ] aggregated.json 의 meaningful_markers 의 모든 마커 (session_continue /
+    multi_interrupt / background_task_notification / context_compact /
+    teammate_message) 중 episode_count ≥ 5 인 것은 본문 한 건 이상 확인됨
+
+[ ] 최종 패턴 후보 목록에 도입부 패턴만 들어가 있지 않음
+    (종료부 · 시간축 진단 · commit/PR 양상 · 어조 패턴 중 최소 두 종류 이상 섞임)
+```
+
+이 종료 조건은 **광역 모드 디폴트**. `--curated` 모드일 때는 표본 줄이는 대신 다른
+검증 (전체 패턴 5-8개 도메인 무관성) 으로 대체.
